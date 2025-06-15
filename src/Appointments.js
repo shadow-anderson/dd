@@ -529,9 +529,6 @@ const Appointments = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold' }}>
-        Appointment Management
-      </Typography>
 
       <Box 
         display="flex" 
