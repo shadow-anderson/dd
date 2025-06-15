@@ -4,13 +4,13 @@ import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } 
 import { 
   Tabs, Tab, Box, TextField, Button, Card, CardContent, CardActions, Chip,
   Typography, IconButton, Collapse, Divider, Tooltip, Dialog, DialogTitle,
-  DialogContent, DialogActions
+  DialogContent, DialogActions, MenuItem, FormControl, InputLabel, Select
 } from '@mui/material';
-import { ExpandMore, Phone, VideoCall, Notifications } from '@mui/icons-material';
+import { ExpandMore, Phone, VideoCall, Notifications, Email } from '@mui/icons-material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
-const appointmentTabs = ['all', 'upcoming', 'today', 'completed', 'cancelled'];
+const appointmentTabs = ['all', 'pending', 'today', 'confirmed', 'completed', 'cancelled'];
 
 // AppointmentCard Component
 const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerateMeet, onUpdateStatus }) => (
@@ -18,32 +18,56 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
     <CardContent>
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{appointment.patient_name}</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{appointment.patientName}</Typography>
           <Typography variant="subtitle2" color="text.secondary">
             ID: {appointment.id.slice(0, 8)}
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {appointment.doctorName} - {appointment.clinicName}
+          </Typography>
         </Box>
-        <Chip
-          label={appointment.status}
-          color={
-            appointment.status === 'completed' ? 'success' :
-            appointment.status === 'cancelled' ? 'error' :
-            appointment.status === 'upcoming' ? 'warning' : 'primary'
-          }
-          sx={{ borderRadius: 1, textTransform: 'capitalize' }}
-        />
+        <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
+          <Chip
+            label={appointment.status}
+            color={
+              appointment.status === 'completed' ? 'success' :
+              appointment.status === 'cancelled' ? 'error' :
+              appointment.status === 'confirmed' ? 'info' :
+              appointment.status === 'pending' ? 'warning' : 'primary'
+            }
+            sx={{ borderRadius: 1, textTransform: 'capitalize' }}
+          />
+          <Chip
+            label={appointment.type}
+            variant="outlined"
+            size="small"
+            sx={{ textTransform: 'capitalize' }}
+          />
+        </Box>
       </Box>
       
-      <Box display="flex" alignItems="center" mt={3} gap={2}>
+      <Box display="flex" alignItems="center" mt={3} gap={2} flexWrap="wrap">
         <Tooltip title="Phone number">
           <Button 
             startIcon={<Phone />}
             variant="outlined"
             size="small"
             sx={{ borderRadius: 2 }}
-            href={`tel:${appointment.phone}`}
+            href={`tel:${appointment.patientPhone}`}
           >
-            {appointment.phone}
+            {appointment.patientPhone}
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Email">
+          <Button 
+            startIcon={<Email />}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: 2 }}
+            href={`mailto:${appointment.patientEmail}`}
+          >
+            Email
           </Button>
         </Tooltip>
         
@@ -70,9 +94,9 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
           </Button>
         )}
 
-        <Tooltip title={`Notifications ${appointment.notification_status || 'pending'}`}>
+        <Tooltip title={`Email ${appointment.emailSent ? 'sent' : 'pending'}`}>
           <IconButton size="small" sx={{ bgcolor: 'background.paper' }}>
-            <Notifications color={appointment.notification_status === 'sent' ? 'success' : 'action'} />
+            <Notifications color={appointment.emailSent ? 'success' : 'action'} />
           </IconButton>
         </Tooltip>
       </Box>
@@ -81,24 +105,27 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
         variant="body2" 
         color="text.secondary" 
         mt={2}
-        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
       >
         <Box component="span" sx={{ fontWeight: 'medium' }}>
-          {new Date(appointment.date).toLocaleDateString()}
+          {appointment.appointmentDate}
         </Box>
         -
         <Box component="span" sx={{ color: 'primary.main' }}>
-          {appointment.time}
+          {appointment.appointmentTime}
         </Box>
         <Box component="span" sx={{ bgcolor: 'grey.100', px: 1, borderRadius: 1 }}>
           {appointment.duration || 30} mins
+        </Box>
+        <Box component="span" sx={{ bgcolor: 'info.light', color: 'info.contrastText', px: 1, borderRadius: 1 }}>
+          {appointment.treatmentType}
         </Box>
       </Typography>
     </CardContent>
 
     <CardActions disableSpacing sx={{ justifyContent: 'space-between' }}>
       <Typography variant="caption" color="text.secondary">
-        Booked via {appointment.booking_method || 'online'}
+        {appointment.type} appointment
       </Typography>
       <IconButton 
         onClick={() => onExpand(appointment.id)}
@@ -114,15 +141,36 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
     <Collapse in={expanded} timeout={300}>
       <CardContent sx={{ bgcolor: 'grey.50' }}>
         <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Symptoms:</Box>
-          <Box component="span" sx={{ ml: 1 }}>{appointment.symptoms || 'No symptoms recorded'}</Box>
+          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Patient Email:</Box>
+          <Box component="span" sx={{ ml: 1 }}>{appointment.patientEmail}</Box>
         </Typography>
         <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Doctor Notes:</Box>
-          <Box component="span" sx={{ ml: 1 }}>{appointment.doctor_notes || 'No notes available'}</Box>
+          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Symptoms:</Box>
+          <Box component="span" sx={{ ml: 1 }}>
+            {Array.isArray(appointment.symptoms) 
+              ? appointment.symptoms.join(', ') 
+              : appointment.symptoms || 'No symptoms recorded'
+            }
+          </Box>
         </Typography>
+        <Typography paragraph>
+          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Notes:</Box>
+          <Box component="span" sx={{ ml: 1 }}>{appointment.notes || 'No notes available'}</Box>
+        </Typography>
+        <Typography paragraph>
+          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Treatment Type:</Box>
+          <Box component="span" sx={{ ml: 1, textTransform: 'capitalize' }}>{appointment.treatmentType}</Box>
+        </Typography>
+        {appointment.emailSent && (
+          <Typography paragraph>
+            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Email Status:</Box>
+            <Box component="span" sx={{ ml: 1, color: 'success.main' }}>
+              Sent at {appointment.emailSentAt?.toDate?.()?.toLocaleString() || 'Unknown time'}
+            </Box>
+          </Typography>
+        )}
         <Divider sx={{ my: 2 }} />
-        <Box display="flex" justifyContent="flex-end" gap={1}>
+        <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
           <Button 
             variant="outlined" 
             color="error" 
@@ -132,7 +180,18 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
           >
             Delete
           </Button>
-          {appointment.status === 'upcoming' && (
+          {appointment.status === 'pending' && (
+            <Button 
+              variant="contained"
+              color="info"
+              onClick={() => onUpdateStatus(appointment.id, 'confirmed')}
+              size="small"
+              sx={{ borderRadius: 2 }}
+            >
+              Confirm
+            </Button>
+          )}
+          {(appointment.status === 'confirmed' || appointment.status === 'pending') && (
             <Button 
               variant="contained"
               color="success"
@@ -143,7 +202,7 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
               Mark Complete
             </Button>
           )}
-          {appointment.status !== 'cancelled' && (
+          {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
             <Button 
               variant="outlined"
               color="warning"
@@ -169,17 +228,26 @@ const Appointments = () => {
   const [openForm, setOpenForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [appointmentData, setAppointmentData] = useState({
-    patient_name: '',
-    phone: '',
-    date: null,
-    time: '',
+    patientName: '',
+    patientEmail: '',
+    patientPhone: '',
+    appointmentDate: null,
+    appointmentTime: '',
     duration: 30,
     symptoms: '',
-    doctor_notes: '',
-    status: 'upcoming',
-    booking_method: 'online',
-    notification_status: 'pending'
+    notes: '',
+    treatmentType: 'general',
+    type: 'in-person',
+    status: 'pending',
+    doctorName: 'Dr. John Doe',
+    doctorId: 'IPtAhVqKBBw5eUO03Rhb',
+    clinicName: 'Main Clinic',
+    clinicId: 'clinic1',
+    emailSent: false
   });
+
+  const treatmentTypes = ['general', 'hair', 'skin', 'dental', 'orthopedic', 'cardiology', 'neurology'];
+  const appointmentTypes = ['in-person', 'online', 'home-visit'];
 
   useEffect(() => {
     fetchAppointments();
@@ -188,35 +256,48 @@ const Appointments = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      let q = collection(db, 'appointments');
+      console.log('Fetching appointments for tab:', selectedTab);
       
-      if (selectedTab !== 'all') {
-        if (selectedTab === 'today') {
-          const today = new Date().toISOString().split('T')[0];
-          // For today tab, you might want to add additional filtering logic
-          q = collection(db, 'appointments');
-        } else {
-          q = query(collection(db, 'appointments'), where('status', '==', selectedTab));
-        }
+      let appointmentsQuery;
+      
+      if (selectedTab === 'all') {
+        appointmentsQuery = collection(db, 'appointments');
+      } else if (selectedTab === 'today') {
+        appointmentsQuery = collection(db, 'appointments');
+      } else {
+        appointmentsQuery = query(
+          collection(db, 'appointments'), 
+          where('status', '==', selectedTab)
+        );
       }
       
-      const snapshot = await getDocs(q);
-      const appointmentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const snapshot = await getDocs(appointmentsQuery);
+      console.log('Firestore snapshot size:', snapshot.size);
       
-      // Filter for today's appointments if today tab is selected
+      const appointmentsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Appointment data:', { id: doc.id, ...data });
+        return { id: doc.id, ...data };
+      });
+      
+      // Handle today's appointments
       if (selectedTab === 'today') {
         const today = new Date().toISOString().split('T')[0];
         const todayAppointments = appointmentsData.filter(app => {
-          const appointmentDate = new Date(app.date).toISOString().split('T')[0];
-          return appointmentDate === today;
+          if (!app.appointmentDate) return false;
+          return app.appointmentDate === today;
         });
         setAppointments(todayAppointments);
       } else {
         setAppointments(appointmentsData);
       }
+      
+      console.log('Final appointments set:', appointmentsData.length);
     } catch (error) {
       console.error('Error fetching appointments:', error);
-      alert('Error loading appointments');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      alert(`Error loading appointments: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -228,7 +309,10 @@ const Appointments = () => {
   };
 
   const handleDateChange = (date) => {
-    setAppointmentData(prev => ({ ...prev, date }));
+    console.log('Date selected:', date);
+    // Format date as YYYY-MM-DD to match your existing format
+    const formattedDate = date ? date.toISOString().split('T')[0] : null;
+    setAppointmentData(prev => ({ ...prev, appointmentDate: formattedDate }));
   };
 
   const handleNewAppointment = () => {
@@ -237,50 +321,137 @@ const Appointments = () => {
 
   const resetForm = () => {
     setAppointmentData({
-      patient_name: '',
-      phone: '',
-      date: null,
-      time: '',
+      patientName: '',
+      patientEmail: '',
+      patientPhone: '',
+      appointmentDate: null,
+      appointmentTime: '',
       duration: 30,
       symptoms: '',
-      doctor_notes: '',
-      status: 'upcoming',
-      booking_method: 'online',
-      notification_status: 'pending'
+      notes: '',
+      treatmentType: 'general',
+      type: 'in-person',
+      status: 'pending',
+      doctorName: 'Dr. John Doe',
+      doctorId: 'IPtAhVqKBBw5eUO03Rhb',
+      clinicName: 'Main Clinic',
+      clinicId: 'clinic1',
+      emailSent: false
     });
   };
 
   const submitAppointment = async (e) => {
     e.preventDefault();
     
-    if (!appointmentData.date || !appointmentData.patient_name || !appointmentData.time || !appointmentData.phone) {
-      alert('Please fill all required fields');
+    // Validation
+    if (!appointmentData.appointmentDate || !appointmentData.patientName || !appointmentData.appointmentTime || !appointmentData.patientPhone || !appointmentData.patientEmail) {
+      alert('Please fill all required fields (Name, Email, Phone, Date, Time)');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(appointmentData.patientEmail)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,}$/;
+    if (!phoneRegex.test(appointmentData.patientPhone.replace(/\s/g, ''))) {
+      alert('Please enter a valid phone number');
       return;
     }
 
     try {
       setLoading(true);
+      console.log('Starting appointment creation...');
+      console.log('Form data:', appointmentData);
+      
+      // Generate a unique ID for the appointment (optional, Firestore will generate one)
+      const appointmentId = `APT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Prepare appointment data to match your existing schema
       const newAppointment = {
-        ...appointmentData,
-        date: appointmentData.date.toISOString(),
-        created_at: new Date().toISOString(),
-        metadata: {
-          ip_address: '',
-          device_info: navigator.userAgent
-        }
+        id: appointmentId,
+        patientName: appointmentData.patientName.trim(),
+        patientEmail: appointmentData.patientEmail.trim().toLowerCase(),
+        patientPhone: appointmentData.patientPhone.trim(),
+        appointmentDate: appointmentData.appointmentDate,
+        appointmentTime: appointmentData.appointmentTime,
+        duration: Number(appointmentData.duration) || 30,
+        symptoms: appointmentData.symptoms.trim() ? [appointmentData.symptoms.trim()] : [],
+        notes: appointmentData.notes.trim(),
+        treatmentType: appointmentData.treatmentType,
+        type: appointmentData.type,
+        status: appointmentData.status,
+        doctorName: appointmentData.doctorName,
+        doctorId: appointmentData.doctorId,
+        clinicName: appointmentData.clinicName,
+        clinicId: appointmentData.clinicId,
+        emailSent: false,
+        emailResponseId: null,
+        emailSentAt: null,
+        hasUploadedFiles: false,
+        medicalRecords: [],
+        availabilityId: null,
+        userId: null, // You might want to get this from authentication
+        isDevelopmentEnvironment: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      const docRef = await addDoc(collection(db, 'appointments'), newAppointment);
-      const createdAppointment = { id: docRef.id, ...newAppointment };
+      console.log('Appointment data to save:', newAppointment);
       
+      // Add to Firestore
+      const appointmentsCollection = collection(db, 'appointments');
+      console.log('Collection reference:', appointmentsCollection);
+      
+      const docRef = await addDoc(appointmentsCollection, newAppointment);
+      console.log('Document written with ID:', docRef.id);
+      
+      // Add to local state immediately
+      const createdAppointment = { id: docRef.id, ...newAppointment };
       setAppointments(prev => [createdAppointment, ...prev]);
+      
+      // Close form and reset
       setOpenForm(false);
       resetForm();
       
       alert('Appointment scheduled successfully!');
+      
+      // Refresh the appointments list
+      await fetchAppointments();
+      
     } catch (error) {
-      console.error('Appointment creation error:', error);
-      alert('Error creating appointment. Please try again.');
+      console.error('Detailed error creating appointment:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      let errorMessage = 'Error creating appointment: ';
+      
+      switch (error.code) {
+        case 'permission-denied':
+          errorMessage += 'Permission denied. Please check your Firestore security rules.';
+          break;
+        case 'unavailable':
+          errorMessage += 'Service unavailable. Please check your internet connection.';
+          break;
+        case 'invalid-argument':
+          errorMessage += 'Invalid data provided. Please check your input.';
+          break;
+        case 'not-found':
+          errorMessage += 'Database not found. Please check your Firebase configuration.';
+          break;
+        case 'unauthenticated':
+          errorMessage += 'Authentication required. Please sign in.';
+          break;
+        default:
+          errorMessage += error.message || 'Unknown error occurred.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -291,41 +462,45 @@ const Appointments = () => {
       // Generate a mock Google Meet link (replace with actual Google Meet API integration)
       const meetLink = `https://meet.google.com/abc-defg-hij?appointmentId=${appointmentId}`;
       
-      await updateDoc(doc(db, 'appointments', appointmentId), { 
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      await updateDoc(appointmentRef, { 
         gmeet_link: meetLink,
-        notification_status: 'sent'
+        emailSent: true,
+        emailSentAt: new Date(),
+        updatedAt: new Date()
       });
       
       setAppointments(prev => prev.map(app => 
         app.id === appointmentId 
-          ? { ...app, gmeet_link: meetLink, notification_status: 'sent' } 
+          ? { ...app, gmeet_link: meetLink, emailSent: true, emailSentAt: new Date() } 
           : app
       ));
       
       alert('Google Meet link generated successfully!');
     } catch (error) {
       console.error('Meet generation failed:', error);
-      alert('Error generating Meet link');
+      alert(`Error generating Meet link: ${error.message}`);
     }
   };
 
   const handleUpdateStatus = async (appointmentId, newStatus) => {
     try {
-      await updateDoc(doc(db, 'appointments', appointmentId), { 
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      await updateDoc(appointmentRef, { 
         status: newStatus,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       });
       
       setAppointments(prev => prev.map(app => 
         app.id === appointmentId 
-          ? { ...app, status: newStatus, updated_at: new Date().toISOString() } 
+          ? { ...app, status: newStatus, updatedAt: new Date() } 
           : app
       ));
       
       alert(`Appointment ${newStatus} successfully!`);
     } catch (error) {
       console.error('Error updating appointment:', error);
-      alert('Error updating appointment status');
+      alert(`Error updating appointment: ${error.message}`);
     }
   };
 
@@ -335,18 +510,21 @@ const Appointments = () => {
     }
 
     try {
-      await deleteDoc(doc(db, 'appointments', appointmentId));
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      await deleteDoc(appointmentRef);
+      
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       alert('Appointment deleted successfully!');
     } catch (error) {
       console.error('Error deleting appointment:', error);
-      alert('Error deleting appointment');
+      alert(`Error deleting appointment: ${error.message}`);
     }
   };
 
   const filteredAppointments = appointments.filter(app => 
-    (app.patient_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    app.phone?.includes(searchQuery)) ?? false
+    (app.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    app.patientPhone?.includes(searchQuery) ||
+    app.patientEmail?.toLowerCase().includes(searchQuery.toLowerCase())) ?? false
   );
 
   return (
@@ -426,26 +604,45 @@ const Appointments = () => {
               <TextField
                 fullWidth
                 label="Patient Full Name"
-                name="patient_name"
-                value={appointmentData.patient_name}
+                name="patientName"
+                value={appointmentData.patientName}
                 onChange={handleInputChange}
                 margin="normal"
                 required
+                error={!appointmentData.patientName && appointmentData.patientName !== ''}
+                helperText={!appointmentData.patientName && appointmentData.patientName !== '' ? 'Patient name is required' : ''}
+              />
+
+              <TextField
+                fullWidth
+                label="Patient Email"
+                name="patientEmail"
+                type="email"
+                value={appointmentData.patientEmail}
+                onChange={handleInputChange}
+                margin="normal"
+                required
+                error={!appointmentData.patientEmail && appointmentData.patientEmail !== ''}
+                helperText={!appointmentData.patientEmail && appointmentData.patientEmail !== '' ? 'Email is required' : ''}
+                placeholder="patient@example.com"
               />
 
               <TextField
                 fullWidth
                 label="Phone Number"
-                name="phone"
-                value={appointmentData.phone}
+                name="patientPhone"
+                value={appointmentData.patientPhone}
                 onChange={handleInputChange}
                 margin="normal"
                 required
+                error={!appointmentData.patientPhone && appointmentData.patientPhone !== ''}
+                helperText={!appointmentData.patientPhone && appointmentData.patientPhone !== '' ? 'Phone number is required' : ''}
+                placeholder="+919368075651"
               />
 
               <DatePicker
                 label="Appointment Date"
-                value={appointmentData.date}
+                value={appointmentData.appointmentDate ? new Date(appointmentData.appointmentDate) : null}
                 onChange={handleDateChange}
                 renderInput={(params) => (
                   <TextField
@@ -453,6 +650,8 @@ const Appointments = () => {
                     fullWidth
                     margin="normal"
                     required
+                    error={!appointmentData.appointmentDate}
+                    helperText={!appointmentData.appointmentDate ? 'Date is required' : ''}
                   />
                 )}
                 minDate={new Date()}
@@ -462,12 +661,14 @@ const Appointments = () => {
                 fullWidth
                 type="time"
                 label="Appointment Time"
-                name="time"
-                value={appointmentData.time}
+                name="appointmentTime"
+                value={appointmentData.appointmentTime}
                 onChange={handleInputChange}
                 margin="normal"
                 InputLabelProps={{ shrink: true }}
                 required
+                error={!appointmentData.appointmentTime && appointmentData.appointmentTime !== ''}
+                helperText={!appointmentData.appointmentTime && appointmentData.appointmentTime !== '' ? 'Time is required' : ''}
               />
 
               <TextField
@@ -478,8 +679,40 @@ const Appointments = () => {
                 value={appointmentData.duration}
                 onChange={handleInputChange}
                 margin="normal"
-                inputProps={{ min: 15, max: 180 }}
+                inputProps={{ min: 15, max: 180, step: 15 }}
               />
+
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Treatment Type</InputLabel>
+                <Select
+                  name="treatmentType"
+                  value={appointmentData.treatmentType}
+                  onChange={handleInputChange}
+                  label="Treatment Type"
+                >
+                  {treatmentTypes.map(type => (
+                    <MenuItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Appointment Type</InputLabel>
+                <Select
+                  name="type"
+                  value={appointmentData.type}
+                  onChange={handleInputChange}
+                  label="Appointment Type"
+                >
+                  {appointmentTypes.map(type => (
+                    <MenuItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' ')}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               <TextField
                 fullWidth
@@ -495,20 +728,41 @@ const Appointments = () => {
 
               <TextField
                 fullWidth
-                label="Doctor Notes"
-                name="doctor_notes"
-                value={appointmentData.doctor_notes}
+                label="Notes"
+                name="notes"
+                value={appointmentData.notes}
                 onChange={handleInputChange}
                 margin="normal"
                 multiline
                 rows={3}
                 placeholder="Any additional notes..."
               />
+
+              <TextField
+                fullWidth
+                label="Doctor Name"
+                name="doctorName"
+                value={appointmentData.doctorName}
+                onChange={handleInputChange}
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Clinic Name"
+                name="clinicName"
+                value={appointmentData.clinicName}
+                onChange={handleInputChange}
+                margin="normal"
+              />
             </Box>
           </LocalizationProvider>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => {setOpenForm(false); resetForm();}} disabled={loading}>
+          <Button 
+            onClick={() => {setOpenForm(false); resetForm();}} 
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button 
@@ -567,6 +821,6 @@ const Appointments = () => {
       )}
     </Box>
   );
-}
+};
 
 export default Appointments;
