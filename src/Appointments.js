@@ -6,7 +6,7 @@ import {
   Typography, IconButton, Collapse, Divider, Tooltip, Dialog, DialogTitle,
   DialogContent, DialogActions, MenuItem, FormControl, InputLabel, Select
 } from '@mui/material';
-import { ExpandMore, Phone, VideoCall, Notifications, Email } from '@mui/icons-material';
+import { ExpandMore, Phone, VideoCall, Notifications, Email, } from '@mui/icons-material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
@@ -530,67 +530,85 @@ const Appointments = () => {
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
 
-      <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        mb={3}
-        sx={{ 
-          flexDirection: { xs: 'column', md: 'row' },
-          gap: 2
-        }}
-      >
-        <Tabs 
-          value={selectedTab} 
-          onChange={(e, newValue) => setSelectedTab(newValue)}
-          sx={{ 
-            '& .MuiTab-root': { textTransform: 'capitalize' },
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            boxShadow: 1
-          }}
-        >
-          {appointmentTabs.map(tab => (
-            <Tab key={tab} label={tab} value={tab} />
-          ))}
-        </Tabs>
-        
-        <Box 
-          display="flex" 
-          gap={2}
-          sx={{ 
-            flexWrap: 'wrap',
-            justifyContent: { xs: 'stretch', sm: 'flex-end' }
-          }}
-        >
-          <TextField
-            size="small"
-            placeholder="Search patients..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ 
-              minWidth: 200,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
-            }}
-          />
-          <Button 
-            variant="contained" 
-            onClick={handleNewAppointment}
-            sx={{ borderRadius: 2 }}
-            disabled={loading}
-          >
-            New Appointment
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={() => alert('Calendar view coming soon!')}
-            sx={{ borderRadius: 2 }}
-          >
-            Calendar View
-          </Button>
-        </Box>
-      </Box>
+      <Box
+  display="flex"
+  flexDirection={{ xs: 'column', md: 'row' }}
+  alignItems={{ xs: 'stretch', md: 'center' }}
+  justifyContent="space-between"
+  gap={2}
+  mb={4}
+>
+  {/* Tabs */}
+  <Tabs
+    value={selectedTab}
+    onChange={(e, newValue) => setSelectedTab(newValue)}
+    variant="scrollable"
+    scrollButtons="auto"
+    sx={{
+      bgcolor: 'background.paper',
+      borderRadius: 2,
+      boxShadow: 1,
+      px: 2,
+      '& .MuiTab-root': {
+        textTransform: 'capitalize',
+        fontWeight: 500,
+        fontSize: '0.95rem',
+        color: 'text.secondary',
+        minWidth: 'auto',
+        px: 2,
+        '&.Mui-selected': {
+          color: 'primary.main',
+          fontWeight: 600,
+        },
+      },
+      '& .MuiTabs-indicator': {
+        height: 3,
+        borderRadius: 2,
+        backgroundColor: 'primary.main',
+      },
+    }}
+  >
+    {appointmentTabs.map((tab) => (
+      <Tab key={tab} label={tab} value={tab} />
+    ))}
+  </Tabs>
+
+  {/* Actions */}
+  <Box
+    display="flex"
+    flexWrap="wrap"
+    gap={1.5}
+    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+    alignItems="center"
+  >
+    <TextField
+      size="small"
+      placeholder="Search patients..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      sx={{
+        minWidth: 220,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 2,
+        },
+      }}
+    />
+    <Button
+      variant="contained"
+      onClick={handleNewAppointment}
+      sx={{
+        borderRadius: 2,
+        px: 3,
+        textTransform: 'none',
+        fontWeight: 500,
+      }}
+      disabled={loading}
+    >
+      + New Appointment
+    </Button>
+    
+  </Box>
+</Box>
 
       {/* Appointment Form Dialog */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
