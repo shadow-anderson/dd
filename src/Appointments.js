@@ -12,7 +12,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const appointmentTabs = ['all', 'pending', 'today', 'confirmed', 'completed', 'cancelled'];
 
-// AppointmentCard Component
+// Appointmentcard Component
 const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerateMeet, onUpdateStatus }) => (
   <Card sx={{ mb: 2, boxShadow: 3, '&:hover': { boxShadow: 6 } }}>
     <CardContent>
