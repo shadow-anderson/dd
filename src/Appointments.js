@@ -139,7 +139,15 @@ const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerate
     </CardActions>
 
     <Collapse in={expanded} timeout={300}>
-      <CardContent sx={{ bgcolor: 'grey.50' }}>
+      <CardContent sx={{ 
+        bgcolor: 'grey.50',
+        '& .MuiTypography-paragraph': {
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 1,
+          mb: 2
+        }
+      }}>
         <Typography paragraph>
           <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Patient Email:</Box>
           <Box component="span" sx={{ ml: 1 }}>{appointment.patientEmail}</Box>
