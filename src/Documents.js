@@ -1,7 +1,7 @@
 
 import { React, useRef, useState, useEffect } from 'react';
 import { FaEye, FaDownload, FaTimes, FaFilePdf, FaFileImage } from "react-icons/fa";
-import { RiRobot3Line } from "react-icons/ri";
+import { RiRobot2Line } from "react-icons/ri";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
 import { gsap } from 'gsap';
@@ -524,7 +524,7 @@ const DocumentCard = ({ doc, className = "" }) => {
             <button
               onClick={() => setIsAIAssistantOpen(true)}
               className="flex items-center gap-1 px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
-              <RiRobot3Line /> Ask AI
+              <RiRobot2Line /> Ask AI
             </button>
           )}
         </div>
