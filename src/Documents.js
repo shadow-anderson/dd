@@ -1,10 +1,11 @@
-
 import { React, useRef, useState, useEffect } from 'react';
 import { FaEye, FaDownload, FaTimes, FaFilePdf, FaFileImage } from "react-icons/fa";
 import { RiRobot2Line } from "react-icons/ri";
 import { MdOutlineDocumentScanner } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
 import { gsap } from 'gsap';
+import { db } from './firebase';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 
 const docs = [
   {
@@ -237,6 +238,96 @@ const Documents = () => {
   const [categoryBy, setCategoryBy] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch documents from Firestore
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'documents'));
+        const docs = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setDocuments(docs);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching documents:', err);
+        setError('Failed to load documents');
+        setLoading(false);
+      }
+    };
+
+    fetchDocuments();
+  }, []);
+
+  // Add a new document to Firestore
+  const addDocument = async (documentData) => {
+    try {
+      const docRef = await addDoc(collection(db, 'documents'), {
+        ...documentData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      setDocuments(prev => [...prev, { id: docRef.id, ...documentData }]);
+      return docRef.id;
+    } catch (err) {
+      console.error('Error adding document:', err);
+      throw new Error('Failed to add document');
+    }
+  };
+
+  // Update a document in Firestore
+  const updateDocument = async (documentId, updatedData) => {
+    try {
+      const documentRef = doc(db, 'documents', documentId);
+      await updateDoc(documentRef, {
+        ...updatedData,
+        updatedAt: new Date()
+      });
+      
+      setDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId ? { ...doc, ...updatedData } : doc
+        )
+      );
+    } catch (err) {
+      console.error('Error updating document:', err);
+      throw new Error('Failed to update document');
+    }
+  };
+
+  // Delete a document from Firestore
+  const deleteDocument = async (documentId) => {
+    try {
+      await deleteDoc(doc(db, 'documents', documentId));
+      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+    } catch (err) {
+      console.error('Error deleting document:', err);
+      throw new Error('Failed to delete document');
+    }
+  };
+
+  // Get documents by patient ID
+  const getPatientDocuments = async (patientId) => {
+    try {
+      const q = query(
+        collection(db, 'documents'),
+        where('patientId', '==', patientId)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (err) {
+      console.error('Error fetching patient documents:', err);
+      throw new Error('Failed to fetch patient documents');
+    }
+  };
 
   // console.log(filteredDocs);
   // console.log(searchBy);
@@ -285,7 +376,7 @@ const Documents = () => {
   }
   const categories = ["all", "reports", "imaging", "results"]; // Tab labels
 
-  const filteredDocs = docs.filter((doc) =>
+  const filteredDocs = documents.filter((doc) =>
     searchByOptions[searchBy](doc) &&
     (searchQuery ? true : true) &&
     categoryByOptions[categoryBy](doc)
