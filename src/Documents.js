@@ -5,228 +5,7 @@ import { MdOutlineDocumentScanner } from "react-icons/md";
 import { CiSearch } from "react-icons/ci";
 import { gsap } from 'gsap';
 import { db } from './firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-
-const docs = [
-  {
-    id: 1,
-    title: "Medical Report of Anuj",
-    type: "pdf",
-    patient: "Anuj Pratap",
-    category: "results",
-    aiSummary: {
-      overview: "Health report of Anuj showing key metrics and observations.",
-      vitals: [
-        { name: "Hemoglobin", value: "15.1 g/dL", normalRange: "13–17 g/dL", status: "Normal" },
-        { name: "WBC Count", value: "6,200 /μL", normalRange: "4,000–11,000 /μL", status: "Normal" },
-        { name: "Platelet Count", value: "200,000 /μL", normalRange: "150,000–450,000 /μL", status: "Normal" },
-        { name: "Blood Sugar (Fasting)", value: "95 mg/dL", normalRange: "70–100 mg/dL", status: "Normal" },
-        { name: "Cholesterol (Total)", value: "205 mg/dL", normalRange: "< 200 mg/dL", status: "High" }
-      ],
-      analysis: [
-        "Values indicate no immediate critical health concern.",
-        "Further evaluation might be needed for borderline results.",
-        "Overall, patient is stable based on current data."
-      ],
-      recommendations: [
-        "Repeat test in 2 weeks.",
-        "Maintain a balanced diet.",
-        "Consult a specialist if symptoms persist."
-      ]
-    },
-    url: "https://drive.google.com/file/d/1hpWcmIXJLV9q0iyKMDw4VPNYFmQQkonJ/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1hpWcmIXJLV9q0iyKMDw4VPNYFmQQkonJ/preview",
-    size: "196 KB",
-    updatedAt: "2025-06-04T00:00:00"
-  },
-  {
-    id: 2,
-    title: "CT Scan Report of Priya",
-    type: "jpg",
-    patient: "Priya Sharma",
-    category: "imaging",
-    aiSummary: {
-      overview: "CT scan revealing minor sinus inflammation.",
-      vitals: [],
-      analysis: [
-        "No signs of structural abnormality.",
-        "Minor inflammation in sinus cavities."
-      ],
-      recommendations: [
-        "Consult ENT specialist.",
-        "Use prescribed nasal sprays."
-      ]
-    },
-    url: "https://drive.google.com/file/d/1z6Mdl_OT11zF7GozE9QbNh07Ae-KoPIK/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1z6Mdl_OT11zF7GozE9QbNh07Ae-KoPIK/preview",
-    size: "74 KB",
-    updatedAt: "2025-05-07T00:00:00"
-  },
-  {
-    id: 3,
-    title: "Blood Report of Rahul",
-    type: "pdf",
-    patient: "Rahul Verma",
-    category: "results",
-    aiSummary: {
-      overview: "Routine blood test with slightly elevated cholesterol.",
-      vitals: [
-        { name: "Hemoglobin", value: "14.3 g/dL", normalRange: "13–17 g/dL", status: "Normal" },
-        { name: "Cholesterol", value: "210 mg/dL", normalRange: "< 200 mg/dL", status: "High" }
-      ],
-      analysis: ["Mild hypercholesterolemia detected."],
-      recommendations: ["Adopt low-fat diet.", "Retest after 1 month."]
-    },
-    url: "https://drive.google.com/file/d/1aYqO0bXeK_8rVqAlJybUOF4tWkq1uCPQ/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1aYqO0bXeK_8rVqAlJybUOF4tWkq1uCPQ/preview",
-    size: "467 KB",
-    updatedAt: "2025-04-20T00:00:00"
-  },
-  {
-    id: 4,
-    title: "MRI Report of Sanya",
-    type: "docx",
-    patient: "Sanya Roy",
-    category: "imaging",
-    aiSummary: {
-      overview: "MRI shows no abnormalities in brain scan.",
-      vitals: [],
-      analysis: ["Normal MRI scan; no signs of trauma or lesions."],
-      recommendations: ["No immediate action required."]
-    },
-    url: "https://docs.google.com/document/d/1xZkGD-NUNj-h4winXcLPnXEi80Ilz2Sa/edit?usp=sharing",
-    previewUrl: "https://docs.google.com/document/d/1xZkGD-NUNj-h4winXcLPnXEi80Ilz2Sa/preview",
-    size: "16 KB",
-    updatedAt: "2025-03-28T00:00:00"
-  },
-  {
-    id: 5,
-    title: "Liver Function Test - Abhishek",
-    type: "pdf",
-    patient: "Abhishek Singh",
-    category: "results",
-    aiSummary: {
-      overview: "LFT showing elevated SGPT and SGOT levels.",
-      vitals: [
-        { name: "SGPT", value: "60 U/L", normalRange: "7–56 U/L", status: "High" },
-        { name: "SGOT", value: "58 U/L", normalRange: "5–40 U/L", status: "High" }
-      ],
-      analysis: ["Indicates possible liver inflammation or fatty liver."],
-      recommendations: ["Reduce alcohol intake.", "Ultrasound advised."]
-    },
-    url: "https://drive.google.com/file/d/19Gbnm1hi-bV2YfI51V4gNXLRBkwgp398/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/19Gbnm1hi-bV2YfI51V4gNXLRBkwgp398/preview",
-    size: "453 KB",
-    updatedAt: "2025-06-01T00:00:00"
-  },
-  {
-    id: 6,
-    title: "X-ray Chest - Manish",
-    type: "png",
-    patient: "Manish Kumar",
-    category: "imaging",
-    aiSummary: {
-      overview: "X-ray indicates clear lungs and no abnormalities.",
-      vitals: [],
-      analysis: ["Lung fields are normal.", "No evidence of fluid or mass."],
-      recommendations: ["No further action necessary."]
-    },
-    url: "https://drive.google.com/file/d/1y4LtjnwKWRywkPEVX_WK5JzGiVYCPHqe/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1y4LtjnwKWRywkPEVX_WK5JzGiVYCPHqe/preview",
-    size: "117 KB",
-    updatedAt: "2025-06-05T00:00:00"
-  },
-  {
-    id: 7,
-    title: "ECG Report - Reena",
-    type: "jpeg",
-    patient: "Reena Mishra",
-    category: "reports",
-    aiSummary: {
-      overview: "ECG shows normal sinus rhythm.",
-      vitals: [],
-      analysis: ["No arrhythmia or abnormalities noted."],
-      recommendations: ["Routine follow-up after 6 months."]
-    },
-    url: "https://drive.google.com/file/d/11UcHiRKANBUZXGusw8lm6h6QW77EEIzp/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/11UcHiRKANBUZXGusw8lm6h6QW77EEIzp/preview",
-    size: "138 KB",
-    updatedAt: "2025-05-15T00:00:00"
-  },
-  {
-    id: 8,
-    title: "Eye Test Report - Kunal",
-    type: "pdf",
-    patient: "Kunal Das",
-    category: "reports",
-    aiSummary: {
-      overview: "Visual acuity report for both eyes.",
-      vitals: [],
-      analysis: ["Mild myopia in left eye."],
-      recommendations: ["Prescription glasses recommended."]
-    },
-    url: "https://drive.google.com/file/d/12Tc6MsZdNEkPOeK6ZiaNNsCgzlGRwv5f/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/12Tc6MsZdNEkPOeK6ZiaNNsCgzlGRwv5f/preview",
-    size: "453 KB",
-    updatedAt: "2025-06-03T00:00:00"
-  },
-  {
-    id: 9,
-    title: "Thyroid Report of Sneha",
-    type: "docx",
-    patient: "Sneha Chatterjee",
-    category: "results",
-    aiSummary: {
-      overview: "TSH slightly above normal range.",
-      vitals: [
-        { name: "TSH", value: "6.0 µIU/mL", normalRange: "0.4–4.0 µIU/mL", status: "High" }
-      ],
-      analysis: ["Suggestive of subclinical hypothyroidism."],
-      recommendations: ["Monitor every 3 months.", "Consider endocrinologist consult."]
-    },
-    url: "https://docs.google.com/document/d/1zU9uE-cyn57P-oKK9WwEv_pTLZWzwHCz/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1zU9uE-cyn57P-oKK9WwEv_pTLZWzwHCz/preview",
-    size: "17 KB",
-    updatedAt: "2025-06-06T00:00:00"
-  },
-  {
-    id: 10,
-    title: "CBC Report - Tanmay",
-    type: "pdf",
-    patient: "Tanmay Dey",
-    category: "results",
-    aiSummary: {
-      overview: "Complete blood count mostly within range.",
-      vitals: [
-        { name: "WBC", value: "5,500 /μL", normalRange: "4,000–11,000 /μL", status: "Normal" },
-        { name: "RBC", value: "4.9 million/μL", normalRange: "4.5–6 million/μL", status: "Normal" }
-      ],
-      analysis: ["Healthy hematologic profile."],
-      recommendations: ["Maintain hydration.", "Routine annual checkup."]
-    },
-    url: "https://drive.google.com/file/d/1LAGziFTmffXY398ekJqUzba73s5RcD5Q/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1LAGziFTmffXY398ekJqUzba73s5RcD5Q/preview",
-    size: "454 KB",
-    updatedAt: "2025-05-30T00:00:00"
-  },
-  {
-    id: 11,
-    title: "Ultrasound Abdomen - Aditya",
-    type: "jpeg",
-    patient: "Aditya Mehta",
-    category: "imaging",
-    aiSummary: {
-      overview: "Abdominal ultrasound normal except mild fatty liver.",
-      vitals: [],
-      analysis: ["Grade 1 fatty liver.", "Other organs appear normal."],
-      recommendations: ["Lifestyle modification.", "Low-fat diet."]
-    },
-    url: "https://drive.google.com/file/d/18XfMAkxMmaMZN8Dt_RDQsgnui7v8sLeT/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/18XfMAkxMmaMZN8Dt_RDQsgnui7v8sLeT/preview",
-    size: "150 KB",
-    updatedAt: "2025-06-02T00:00:00"
-  }
-];
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
 
 const Documents = () => {
 
@@ -242,20 +21,72 @@ const Documents = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch documents from Firestore
+  // Fetch documents from Firestore with better error handling
   useEffect(() => {
     const fetchDocuments = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
-        const querySnapshot = await getDocs(collection(db, 'documents'));
-        const docs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        // console.log('Attempting to fetch documents from Firestore...');
+        
+        // Check if db is properly initialized
+        if (!db) {
+          throw new Error('Firebase database not initialized');
+        }
+
+        const documentsCollection = collection(db, 'documents');
+        // console.log('Documents collection reference created');
+
+        const querySnapshot = await getDocs(documentsCollection);
+        // console.log('Query snapshot received, document count:', querySnapshot.size);
+
+        if (querySnapshot.empty) {
+          // console.warn('No documents found in the collection');
+          setDocuments([]);
+          setLoading(false);
+          return;
+        }
+
+        const docs = [];
+        querySnapshot.forEach((docSnapshot) => {
+          // console.log('Processing document:', docSnapshot.id);
+          const data = docSnapshot.data();
+          // console.log('Document data:', data);
+          
+          const processedDoc = {
+            id: docSnapshot.id,
+            title: data.title || '',
+            patient: data.patient || '',
+            type: data.type || '',
+            size: data.size || '',
+            url: data.url || '',
+            previewUrl: data.previewUrl || '',
+            category: data.category || '',
+            aiSummary: data.aiSummary || null,
+            // Handle Firestore Timestamp conversion more safely
+            createdAt: data.createdAt ? 
+              (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)) : 
+              new Date(),
+            updatedAt: data.updatedAt ? 
+              (data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)) : 
+              new Date()
+          };
+          
+          docs.push(processedDoc);
+        });
+        
+        // console.log('Processed documents:', docs);
         setDocuments(docs);
-        setLoading(false);
+        
       } catch (err) {
-        console.error('Error fetching documents:', err);
-        setError('Failed to load documents');
+        // console.error('Detailed error fetching documents:', err);
+        // console.error('Error code:', err.code);
+        // console.error('Error message:', err.message);
+        // console.error('Error stack:', err.stack);
+        
+        setError(`Failed to load documents: ${err.message}`);
+      } finally {
         setLoading(false);
       }
     };
@@ -272,7 +103,14 @@ const Documents = () => {
         updatedAt: new Date()
       });
       
-      setDocuments(prev => [...prev, { id: docRef.id, ...documentData }]);
+      const newDoc = { 
+        id: docRef.id, 
+        ...documentData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      setDocuments(prev => [...prev, newDoc]);
       return docRef.id;
     } catch (err) {
       console.error('Error adding document:', err);
@@ -284,14 +122,16 @@ const Documents = () => {
   const updateDocument = async (documentId, updatedData) => {
     try {
       const documentRef = doc(db, 'documents', documentId);
-      await updateDoc(documentRef, {
+      const updatePayload = {
         ...updatedData,
         updatedAt: new Date()
-      });
+      };
+      
+      await updateDoc(documentRef, updatePayload);
       
       setDocuments(prev => 
         prev.map(doc => 
-          doc.id === documentId ? { ...doc, ...updatedData } : doc
+          doc.id === documentId ? { ...doc, ...updatePayload } : doc
         )
       );
     } catch (err) {
@@ -329,9 +169,6 @@ const Documents = () => {
     }
   };
 
-  // console.log(filteredDocs);
-  // console.log(searchBy);
-
   function parseInputDate(input) {
     let date = new Date(input);
     if (!isNaN(date)) return date;
@@ -346,26 +183,26 @@ const Documents = () => {
 
   const searchByOptions = {
     all: (doc) =>
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchQuery.toLowerCase()),
+      (doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.patient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.type?.toLowerCase().includes(searchQuery.toLowerCase())) ?? false,
 
-    name: (doc) => doc.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    name: (doc) => doc.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false,
 
-    patient: (doc) => doc.patient.toLowerCase().includes(searchQuery.toLowerCase()),
+    patient: (doc) => doc.patient?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false,
 
-    type: (doc) => doc.type.toLowerCase().includes(searchQuery.toLowerCase()),
+    type: (doc) => doc.type?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false,
   };
 
   const sortByOptions = {
-    nameAsc: (a, b) => a.title.localeCompare(b.title),
-    nameDec: (a, b) => b.title.localeCompare(a.title),
-    patientAsc: (a, b) => a.patient.localeCompare(b.patient),
-    patientDec: (a, b) => b.patient.localeCompare(a.patient),
+    nameAsc: (a, b) => (a.title || '').localeCompare(b.title || ''),
+    nameDec: (a, b) => (b.title || '').localeCompare(a.title || ''),
+    patientAsc: (a, b) => (a.patient || '').localeCompare(b.patient || ''),
+    patientDec: (a, b) => (b.patient || '').localeCompare(a.patient || ''),
     dateAsc: (a, b) => new Date(a.updatedAt) - new Date(b.updatedAt),
     dateDec: (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
-    sizeAsc: (a, b) => parseFloat(a.size) - parseFloat(b.size),
-    sizeDec: (a, b) => parseFloat(b.size) - parseFloat(a.size),
+    sizeAsc: (a, b) => parseFloat(a.size || '0') - parseFloat(b.size || '0'),
+    sizeDec: (a, b) => parseFloat(b.size || '0') - parseFloat(a.size || '0'),
   };
 
   const categoryByOptions = {
@@ -381,7 +218,7 @@ const Documents = () => {
     (searchQuery ? true : true) &&
     categoryByOptions[categoryBy](doc)
   ).sort(
-    sortByOptions[sortBy] || sortByOptions.date // Default to date sorting if no sortBy is selected
+    sortByOptions[sortBy] || sortByOptions.dateDec // Default to newest first
   );
 
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
@@ -409,9 +246,13 @@ const Documents = () => {
     }
   }, [currentDocs]);
 
+  // Debug render
+  // console.log('Component render - Documents:', documents.length, 'Loading:', loading, 'Error:', error);
+
   return (
     <div className="bg-white dark:bg-gray-700 dark:text-white rounded-lg shadow-md md:p-6 py-6 px-2">
       <h2 className="text-2xl font-semibold mb-4">Documents</h2>
+
 
       {/* Sort and Search Filter */}
       <div className="flex lg:flex-row flex-col gap-2 mb-4">
@@ -482,52 +323,76 @@ const Documents = () => {
         </div>
       </div>
 
-
-      {/* Cards */}
-      <div
-        ref={cardsContainerRef}
-        className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-1 py-4">
-        {currentDocs.length > 0 ? (
-          currentDocs.map((doc) => (
-            <DocumentCard key={doc.id} doc={doc} className="document-card" />
-          ))
-        ) : (
-          <div className="text-center py-10 col-span-full">
-            <h3 className="mt-2 text-lg font-medium">No such documents found.</h3>
-          </div>
-        )}
-      </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-4">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50"
-          >
-            Prev
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i + 1}
-              onClick={() => setCurrentPage(i + 1)}
-              className={`px-3 py-1 rounded ${currentPage === i + 1
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-600"
-                }`}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50"
-          >
-            Next
-          </button>
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error!</strong>
+          <span className="block sm:inline"> {error}</span>
         </div>
+      )}
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex justify-center items-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+          <span className="ml-3">Loading documents...</span>
+        </div>
+      ) : (
+        <>
+          {/* Cards */}
+          <div
+            ref={cardsContainerRef}
+            className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-1 py-4">
+            {currentDocs.length > 0 ? (
+              currentDocs.map((doc) => (
+                <DocumentCard key={doc.id} doc={doc} className="document-card" />
+              ))
+            ) : (
+              <div className="text-center py-10 col-span-full">
+                <h3 className="mt-2 text-lg font-medium">
+                  {documents.length === 0 ? 'No documents found in database.' : 'No documents match your search criteria.'}
+                </h3>
+                {documents.length === 0 && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    Make sure your Firestore collection 'documents' contains data.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-4">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 rounded ${currentPage === i + 1
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 dark:bg-gray-600"
+                    }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-600 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -548,16 +413,24 @@ const DocumentCard = ({ doc, className = "" }) => {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
 
   const avatar = doc.patient
-    .split(" ")
-    .map((name) => name[0].toUpperCase())
-    .join("");
+    ? doc.patient
+        .split(" ")
+        .filter(name => name.length > 0)
+        .map((name) => name[0]?.toUpperCase() || '')
+        .join("")
+    : "";
+    
 
   // format date in dd mm yyyy format
-  function formatDate(isoString) {
-    const date = new Date(isoString);
-    const day = String(date.getDate()).padStart(2, '0');      // 2-digit day
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const year = date.getFullYear();
+  function formatDate(date) {
+    if (!date) return '';
+    
+    const dateObj = date instanceof Date ? date : new Date(date);
+    if (isNaN(dateObj.getTime())) return '';
+    
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = dateObj.getFullYear();
 
     return `${day}-${month}-${year}`;
   }
@@ -635,10 +508,11 @@ const DocumentCard = ({ doc, className = "" }) => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {!!doc.url && (
+              {!!doc.previewUrl && (
                 <iframe
                   src={doc.previewUrl}
                   className="w-full h-full"
+                  title={`Preview of ${doc.title || 'document'}`}
                 ></iframe>
               )}
             </div>
@@ -648,7 +522,7 @@ const DocumentCard = ({ doc, className = "" }) => {
 
       {/* AI Assistant */}
       {
-        isAIAssistantOpen && (
+        isAIAssistantOpen && doc.aiSummary && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-700 dark:text-white rounded-lg w-[90%] max-w-3xl max-h-screen h-fit overflow-y-auto shadow-xl flex flex-col relative">
               <div className="flex justify-between items-center p-4 border-b">
@@ -668,7 +542,7 @@ const DocumentCard = ({ doc, className = "" }) => {
                     <h3 className="font-semibold mb-1 text-gray-700 dark:text-white">Vitals:</h3>
                     <ul className="list-disc pl-5 mb-4">
                       {doc.aiSummary.vitals.map((vital, index) => {
-                        const status = vital.status.toLowerCase(); // Normalize casing
+                        const status = vital.status?.toLowerCase() || ''; // Normalize casing
                         let textColor = "text-gray-700";
 
                         if (status === "high") textColor = "text-red-600 dark:text-red-400 font-semibold";
