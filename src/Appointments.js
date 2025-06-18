@@ -264,7 +264,7 @@ const Appointments = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      console.log('Fetching appointments for tab:', selectedTab);
+      // console.log('Fetching appointments for tab:', selectedTab);
       
       let appointmentsQuery;
       
@@ -284,7 +284,7 @@ const Appointments = () => {
       
       const appointmentsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('Appointment data:', { id: doc.id, ...data });
+        // console.log('Appointment data:', { id: doc.id, ...data });
         return { id: doc.id, ...data };
       });
       
@@ -300,11 +300,11 @@ const Appointments = () => {
         setAppointments(appointmentsData);
       }
       
-      console.log('Final appointments set:', appointmentsData.length);
+      // console.log('Final appointments set:', appointmentsData.length);
     } catch (error) {
-      console.error('Error fetching appointments:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      // console.error('Error fetching appointments:', error);
+      // console.error('Error code:', error.code);
+      // console.error('Error message:', error.message);
       alert(`Error loading appointments: ${error.message}`);
     } finally {
       setLoading(false);
@@ -317,7 +317,7 @@ const Appointments = () => {
   };
 
   const handleDateChange = (date) => {
-    console.log('Date selected:', date);
+    // console.log('Date selected:', date);
     // Format date as YYYY-MM-DD to match your existing format
     const formattedDate = date ? date.toISOString().split('T')[0] : null;
     setAppointmentData(prev => ({ ...prev, appointmentDate: formattedDate }));
@@ -373,8 +373,8 @@ const Appointments = () => {
 
     try {
       setLoading(true);
-      console.log('Starting appointment creation...');
-      console.log('Form data:', appointmentData);
+      // console.log('Starting appointment creation...');
+      // console.log('Form data:', appointmentData);
       
       // Generate a unique ID for the appointment (optional, Firestore will generate one)
       const appointmentId = `APT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -409,14 +409,14 @@ const Appointments = () => {
         updatedAt: new Date()
       };
 
-      console.log('Appointment data to save:', newAppointment);
+      // console.log('Appointment data to save:', newAppointment);
       
       // Add to Firestore
       const appointmentsCollection = collection(db, 'appointments');
-      console.log('Collection reference:', appointmentsCollection);
+      // console.log('Collection reference:', appointmentsCollection);
       
       const docRef = await addDoc(appointmentsCollection, newAppointment);
-      console.log('Document written with ID:', docRef.id);
+      // console.log('Document written with ID:', docRef.id);
       
       // Add to local state immediately
       const createdAppointment = { id: docRef.id, ...newAppointment };
@@ -432,10 +432,10 @@ const Appointments = () => {
       await fetchAppointments();
       
     } catch (error) {
-      console.error('Detailed error creating appointment:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      // console.error('Detailed error creating appointment:', error);
+      // console.error('Error code:', error.code);
+      // console.error('Error message:', error.message);
+      // console.error('Error stack:', error.stack);
       
       let errorMessage = 'Error creating appointment: ';
       
@@ -486,7 +486,7 @@ const Appointments = () => {
       
       alert('Google Meet link generated successfully!');
     } catch (error) {
-      console.error('Meet generation failed:', error);
+      // console.error('Meet generation failed:', error);
       alert(`Error generating Meet link: ${error.message}`);
     }
   };
@@ -507,7 +507,7 @@ const Appointments = () => {
       
       alert(`Appointment ${newStatus} successfully!`);
     } catch (error) {
-      console.error('Error updating appointment:', error);
+      // console.error('Error updating appointment:', error);
       alert(`Error updating appointment: ${error.message}`);
     }
   };
@@ -524,7 +524,7 @@ const Appointments = () => {
       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
       alert('Appointment deleted successfully!');
     } catch (error) {
-      console.error('Error deleting appointment:', error);
+      // console.error('Error deleting appointment:', error);
       alert(`Error deleting appointment: ${error.message}`);
     }
   };

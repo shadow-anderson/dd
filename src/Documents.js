@@ -251,8 +251,6 @@ const Documents = () => {
 
   return (
     <div className="bg-white dark:bg-gray-700 dark:text-white rounded-lg shadow-md md:p-6 py-6 px-2">
-      <h2 className="text-2xl font-semibold mb-4">Documents</h2>
-
 
       {/* Sort and Search Filter */}
       <div className="flex lg:flex-row flex-col gap-2 mb-4">
