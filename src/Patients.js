@@ -16,8 +16,10 @@ import {
   Avatar,
   IconButton,
   Paper,
+  Collapse,
 } from "@mui/material";
-import { Search as SearchIcon, Add as AddIcon, People as PeopleIcon, Email, Phone, Description, Event } from "@mui/icons-material";
+import { Search as SearchIcon, Add as AddIcon, People as PeopleIcon, Email, Phone, Description, Event, ExpandMore, ExpandLess } from "@mui/icons-material";
+import DuoIcon from '@mui/icons-material/Duo';
 
 // Mock data
 const patients = [
@@ -242,7 +244,7 @@ const Patients = () => {
       <Grid container spacing={2}>
         {filteredPatients.length > 0 ? (
           filteredPatients.map((patient) => (
-            <Grid key={patient.id} size={{ xs: 12, md:6, xl:4 }}>
+            <Grid key={patient.id} size={{ xs: 12, md: 6, xl: 4 }}>
               <PatientCard
                 patient={patient}
                 onSchedule={handleScheduleAppointment}
@@ -281,6 +283,7 @@ const Patients = () => {
 
 // MUI PatientCard
 function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
+  const [documentsExpanded, setDocumentsExpanded] = useState(false);
   return (
     <Card
       variant="outlined"
@@ -297,7 +300,7 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
             justifyContent: "space-between",
             alignItems: "center",
             flexWrap: "wrap",
-            mb: 2,
+            mb: 1,
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -306,7 +309,7 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
             </Avatar>
             <Box>
               <Typography fontWeight="bold">{patient.name}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography fontSize="small" variant="body2" color="text.secondary">
                 {patient.email}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -359,17 +362,21 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
       </CardContent>
       <CardActions
         sx={{
-          mt: "auto",
+          py: 1,
           px: 2,
-          pb: 2,
-          pt: 0,
-          gap: 1,
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
         }}
       >
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            mx: "auto",
+            width: "100%",
+            gap: 1,
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Button
             size="small"
             color="primary"
@@ -378,6 +385,15 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
             onClick={() => onSchedule(patient.id)}
           >
             Schedule
+          </Button>
+          <Button
+            size="small"
+            color="primary"
+            variant="outlined"
+            startIcon={<DuoIcon />}
+            onClick={() => onSchedule(patient.id)}
+          >
+            Meet
           </Button>
           <Button
             size="small"
@@ -390,6 +406,51 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
           </Button>
         </Box>
       </CardActions>
+
+      {/* View All Documents Toggle Button */}
+      <Box sx={{ mt: 1, mb: 1 }} mx="auto">
+        <Button
+          size="small"
+          startIcon={<Description />}
+          endIcon={documentsExpanded ? <ExpandLess /> : <ExpandMore />}
+          onClick={() => setDocumentsExpanded((prev) => !prev)}
+        >
+          {documentsExpanded ? "Hide Documents" : "View All Documents"}
+        </Button>
+
+        {/* Collapsible Documents Section */}
+        <Collapse in={documentsExpanded}>
+          <Box mt={2}>
+            {patient.documents && patient.documents.length > 0 ? (
+              patient.documents.map((doc) => (
+                <Box
+                  key={doc.id}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  px={2}
+                  py={1}
+                  mb={1}
+                  sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
+                >
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {doc.title}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {doc.type.toUpperCase()} • Uploaded{" "}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary" align="center" mt={2}>
+                No documents available
+              </Typography>
+            )}
+          </Box>
+        </Collapse>
+      </Box>
     </Card>
   );
 }
