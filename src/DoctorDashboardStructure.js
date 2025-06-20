@@ -109,8 +109,8 @@ const DoctorDashboard = () => {
       </Drawer>
       
       {/* Main content area */}
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: '100vh' }}>
-        <Paper elevation={3} sx={{ width: '100%', maxWidth: 1200, minHeight: 400, p: { xs: 2, md: 4 }, mt: 4, borderRadius: 4, background: 'rgba(255,255,255,0.95)', boxShadow: 6 }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 2 }, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', minHeight: '100vh' }}>
+        <Paper elevation={3} sx={{ width: '100%', maxWidth: 1200, minHeight: 400, p: { xs: 2, md: 2 }, mt: 4, borderRadius: 4, background: 'rgba(255,255,255,0.95)', boxShadow: 6 }}>
           <Typography variant="h4" sx={{ fontWeight: 700, mb: 4, color: mainBlue }}>
             {menuItems[selectedIndex].label}
           </Typography>
