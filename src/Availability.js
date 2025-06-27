@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { db } from './firebase';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import {
   Box, Button, Card, CardContent, Chip, Container, Grid, 
   Paper, Switch, Typography, useTheme, useMediaQuery
@@ -6,7 +8,7 @@ import {
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, addDays, startOfWeek, isSameDay, isToday, isWithinInterval } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay, isToday} from 'date-fns';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -19,6 +21,8 @@ const AvailabilityScheduler = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekDays, setWeekDays] = useState([]);
   const [availabilityData, setAvailabilityData] = useState({});
+  const [availabilityDocId, setAvailabilityDocId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Initialize time slots (9:00 AM to 5:00 PM)
   const timeSlots = Array.from({ length: 16 }, (_, i) => {
@@ -56,6 +60,29 @@ const AvailabilityScheduler = () => {
     setWeekDays(days);
     setAvailabilityData(newAvailabilityData);
   }, [selectedDate]);
+
+  // Fetch availability from Firestore on mount
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      setLoading(true);
+      try {
+        const q = collection(db, 'availability');
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          // For demo, just use the first doc (customize as needed)
+          const docSnap = snapshot.docs[0];
+          setAvailabilityDocId(docSnap.id);
+          setAvailabilityData(docSnap.data().availabilityData || {});
+        }
+      } catch (error) {
+        alert('Error loading availability: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAvailability();
+    // eslint-disable-next-line
+  }, []);
 
   // Calculate active slots count
   const getActiveSlotCount = (dayKey) => {
@@ -117,6 +144,28 @@ const AvailabilityScheduler = () => {
   const selectedDaySlots = selectedDayData.slots || {};
   const activeSlotCount = getActiveSlotCount(selectedDayKey);
 
+  // Save schedule to Firestore
+  const handleSaveSchedule = async () => {
+    setLoading(true);
+    try {
+      const dataToSave = { availabilityData };
+      if (availabilityDocId) {
+        // Update existing doc
+        const docRef = doc(db, 'availability', availabilityDocId);
+        await updateDoc(docRef, dataToSave);
+      } else {
+        // Add new doc
+        const docRef = await addDoc(collection(db, 'availability'), dataToSave);
+        setAvailabilityDocId(docRef.id);
+      }
+      alert('Availability saved to Firestore!');
+    } catch (error) {
+      alert('Error saving availability: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Paper elevation={0} sx={{ 
@@ -177,8 +226,10 @@ const AvailabilityScheduler = () => {
                 boxShadow: '0 6px 15px rgba(33, 150, 243, 0.3)'
               }
             }}
+            onClick={handleSaveSchedule}
+            disabled={loading}
           >
-            Save Schedule
+            {loading ? 'Saving...' : 'Save Schedule'}
           </Button>
         </Box>
         
