@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, setDoc } from 'firebase/firestore';
 import {
   Box, Button, Card, CardContent, Chip, Container, Grid, 
   Paper, Switch, Typography, useTheme, useMediaQuery
@@ -21,8 +21,10 @@ const AvailabilityScheduler = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekDays, setWeekDays] = useState([]);
   const [availabilityData, setAvailabilityData] = useState({});
-  const [availabilityDocId, setAvailabilityDocId] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // Add clinicId - you can make this dynamic based on logged-in user
+  const clinicId = "clinic7.1";
 
   // Initialize time slots (9:00 AM to 5:00 PM)
   const timeSlots = Array.from({ length: 16 }, (_, i) => {
@@ -32,6 +34,30 @@ const AvailabilityScheduler = () => {
     const displayHour = hour > 12 ? hour - 12 : hour;
     return `${displayHour}:${minutes} ${period}`;
   });
+
+  // Convert time format for Firestore (9:00 AM -> 09:00)
+  const convertTimeToFirestore = (timeSlot) => {
+    const [time, period] = timeSlot.split(' ');
+    const [hour, minute] = time.split(':');
+    let hour24 = parseInt(hour);
+    
+    if (period === 'PM' && hour24 !== 12) {
+      hour24 += 12;
+    } else if (period === 'AM' && hour24 === 12) {
+      hour24 = 0;
+    }
+    
+    return `${hour24.toString().padStart(2, '0')}:${minute}`;
+  };
+
+  // Convert time format from Firestore (09:00 -> 9:00 AM)
+  const convertTimeFromFirestore = (time24) => {
+    const [hour, minute] = time24.split(':');
+    const hour24 = parseInt(hour);
+    const period = hour24 >= 12 ? 'PM' : 'AM';
+    const displayHour = hour24 > 12 ? hour24 - 12 : (hour24 === 0 ? 12 : hour24);
+    return `${displayHour}:${minute} ${period}`;
+  };
 
   // Initialize week and availability data
   useEffect(() => {
@@ -66,23 +92,47 @@ const AvailabilityScheduler = () => {
     const fetchAvailability = async () => {
       setLoading(true);
       try {
-        const q = collection(db, 'availability');
+        const q = query(
+          collection(db, 'availability'), 
+          where('clinicId', '==', clinicId)
+        );
         const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          // For demo, just use the first doc (customize as needed)
-          const docSnap = snapshot.docs[0];
-          setAvailabilityDocId(docSnap.id);
-          setAvailabilityData(docSnap.data().availabilityData || {});
-        }
+        
+        const firestoreData = {};
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const dayKey = data.date;
+          
+          // Convert Firestore array format to component format
+          const slots = {};
+          data.slots.forEach(slot => {
+            const displayTime = convertTimeFromFirestore(slot.time);
+            slots[displayTime] = slot.availableSlot;
+          });
+          
+          firestoreData[dayKey] = {
+            isOffDay: !data.availableDay,
+            slots: slots,
+            docId: doc.id // Store document ID for updates
+          };
+        });
+        
+        // Merge with existing data
+        setAvailabilityData(prev => ({
+          ...prev,
+          ...firestoreData
+        }));
+        
       } catch (error) {
+        console.error('Error loading availability:', error);
         alert('Error loading availability: ' + error.message);
       } finally {
         setLoading(false);
       }
     };
+    
     fetchAvailability();
-    // eslint-disable-next-line
-  }, []);
+  }, [clinicId]);
 
   // Calculate active slots count
   const getActiveSlotCount = (dayKey) => {
@@ -144,22 +194,54 @@ const AvailabilityScheduler = () => {
   const selectedDaySlots = selectedDayData.slots || {};
   const activeSlotCount = getActiveSlotCount(selectedDayKey);
 
-  // Save schedule to Firestore
+  // Save schedule to Firestore 
   const handleSaveSchedule = async () => {
     setLoading(true);
     try {
-      const dataToSave = { availabilityData };
-      if (availabilityDocId) {
-        // Update existing doc
-        const docRef = doc(db, 'availability', availabilityDocId);
-        await updateDoc(docRef, dataToSave);
-      } else {
-        // Add new doc
-        const docRef = await addDoc(collection(db, 'availability'), dataToSave);
-        setAvailabilityDocId(docRef.id);
-      }
-      alert('Availability saved to Firestore!');
+      // Process each day in the current week
+      const savePromises = weekDays.map(async (day) => {
+        const dayKey = format(day, 'yyyy-MM-dd');
+        const dayData = availabilityData[dayKey];
+        
+        if (!dayData) return;
+
+        // Convert component format to Firestore format
+        const slots = Object.entries(dayData.slots).map(([timeSlot, isAvailable]) => ({
+          time: convertTimeToFirestore(timeSlot),
+          availableSlot: isAvailable
+        }));
+
+        const firestoreData = {
+          clinicId: clinicId,
+          date: dayKey,
+          availableDay: !dayData.isOffDay,
+          slots: slots
+        };
+
+        // Create document with date as ID for easy querying
+        const docRef = doc(db, 'availability', `${clinicId}-${dayKey}`);
+        
+        // Only delete if it's an off day AND no slots are available
+        if (dayData.isOffDay && slots.every(slot => !slot.availableSlot)) {
+          // If it's an off day and no slots are available, delete the document
+          try {
+            await deleteDoc(docRef);
+          } catch (error) {
+            // Document might not exist, that's ok
+            console.log('Document does not exist or already deleted');
+          }
+        } else {
+          // Always save/update the document for any other case
+          // This includes: available days, partially available days, etc.
+          await setDoc(docRef, firestoreData, { merge: true });
+        }
+      });
+
+      await Promise.all(savePromises);
+      alert('Availability saved to Firestore successfully!');
+      
     } catch (error) {
+      console.error('Error saving availability:', error);
       alert('Error saving availability: ' + error.message);
     } finally {
       setLoading(false);
