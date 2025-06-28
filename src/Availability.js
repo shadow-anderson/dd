@@ -358,108 +358,108 @@ const AvailabilityScheduler = () => {
     }
   };
 
-  // FIXED: Enhanced off day toggle handler - No more document deletion
-  const handleOffDayToggle = async (dayKey) => {
-    if (!clinicId) {
-      alert('Please select a clinic first');
-      return;
-    }
+  // Enhanced off day toggle handler
+const handleOffDayToggle = async (dayKey) => {
+  if (!clinicId) {
+    alert('Please select a clinic first');
+    return;
+  }
 
-    try {
-      console.log(`🔄 Toggling off day for date: ${dayKey} in clinic: ${clinicId}`);
+  try {
+    console.log(`🔄 Toggling off day for date: ${dayKey} in clinic: ${clinicId}`);
+    
+    const currentData = availabilityData[dayKey] || { isOffDay: false, slots: {} };
+    const currentOffDayValue = currentData.isOffDay;
+    const newOffDayValue = !currentOffDayValue;
+    
+    console.log(`📊 Off day status: ${currentOffDayValue} → ${newOffDayValue}`);
+    
+    // Update local state first for immediate UI feedback
+    const updatedAvailabilityData = {
+      ...availabilityData,
+      [dayKey]: {
+        ...currentData,
+        isOffDay: newOffDayValue,
+        // FIXED: If turning OFF the day, set all slots to false
+        // If turning ON the day, set all slots to true (make them available)
+        slots: newOffDayValue 
+          ? timeSlots.reduce((acc, slot) => {
+              acc[slot] = false; // Day is OFF, so no slots available
+              return acc;
+            }, {})
+          : timeSlots.reduce((acc, slot) => {
+              acc[slot] = true; // Day is ON, so make all slots available
+              return acc;
+            }, {})
+      },
+    };
+    
+    setAvailabilityData(updatedAvailabilityData);
+
+    const updatedDayData = updatedAvailabilityData[dayKey];
+    
+    // Prepare Firestore data with ALL time slots
+    const firestoreSlots = timeSlots.map(timeSlot => {
+      const firestoreTime = convertTimeToFirestore(timeSlot);
+      // FIXED: If it's an off day, set all slots to false
+      // If it's an available day, set all slots to true
+      const isAvailable = newOffDayValue ? false : true;
       
-      const currentData = availabilityData[dayKey] || { isOffDay: false, slots: {} };
-      const currentOffDayValue = currentData.isOffDay;
-      const newOffDayValue = !currentOffDayValue;
-      
-      console.log(`📊 Off day status: ${currentOffDayValue} → ${newOffDayValue}`);
-      
-      // Update local state first for immediate UI feedback
-      const updatedAvailabilityData = {
-        ...availabilityData,
-        [dayKey]: {
-          ...currentData,
-          isOffDay: newOffDayValue,
-          // If turning OFF the day, set all slots to false
-          // If turning ON the day, keep existing slots or set to false by default
-          slots: newOffDayValue 
-            ? timeSlots.reduce((acc, slot) => {
-                acc[slot] = false;
-                return acc;
-              }, {})
-            : currentData.slots || timeSlots.reduce((acc, slot) => {
-                acc[slot] = false;
-                return acc;
-              }, {})
-        },
+      return {
+        time: firestoreTime,
+        availableSlot: isAvailable
       };
-      
-      setAvailabilityData(updatedAvailabilityData);
+    });
 
-      const updatedDayData = updatedAvailabilityData[dayKey];
-      
-      // Prepare Firestore data with ALL time slots
-      const firestoreSlots = timeSlots.map(timeSlot => {
-        const firestoreTime = convertTimeToFirestore(timeSlot);
-        // If it's an off day, set all slots to false
-        // Otherwise, use the actual slot availability
-        const isAvailable = newOffDayValue ? false : (updatedDayData.slots[timeSlot] || false);
-        
-        return {
-          time: firestoreTime,
-          availableSlot: isAvailable
-        };
-      });
+    // Sort slots by time for consistency
+    firestoreSlots.sort((a, b) => a.time.localeCompare(b.time));
 
-      // Sort slots by time for consistency
-      firestoreSlots.sort((a, b) => a.time.localeCompare(b.time));
+    const firestoreData = {
+      clinicId: clinicId,
+      date: dayKey,
+      availableDay: !newOffDayValue, // availableDay is the opposite of isOffDay
+      slots: firestoreSlots
+    };
 
-      const firestoreData = {
-        clinicId: clinicId,
-        date: dayKey,
-        availableDay: !newOffDayValue, // availableDay is the opposite of isOffDay
-        slots: firestoreSlots
-      };
+    console.log('💾 Firestore data being saved:', JSON.stringify(firestoreData, null, 2));
 
-      console.log('💾 Firestore data being saved:', JSON.stringify(firestoreData, null, 2));
-
-      // Use existing document ID if available, otherwise create new document with date-based ID
-      const existingDocId = documentMap[dayKey];
-      let docRef;
-      
-      if (existingDocId) {
-        console.log(`📝 Updating existing document: ${existingDocId}`);
-        docRef = doc(db, 'availability', existingDocId);
-      } else {
-        console.log(`📄 Creating new document for date: ${dayKey}`);
-        const newDocId = `${clinicId}-${dayKey}`;
-        docRef = doc(db, 'availability', newDocId);
-        // Update document map for future reference
-        setDocumentMap(prev => ({
-          ...prev,
-          [dayKey]: newDocId
-        }));
-      }
-
-      // Always update/create the document instead of deleting
-      await setDoc(docRef, firestoreData, { merge: false });
-      
-      console.log(`✅ Document ${newOffDayValue ? 'marked as off day' : 'marked as available day'} for ${dayKey}`);
-      
-    } catch (error) {
-      console.error('❌ Error updating day status:', error);
-      alert('Error updating day status: ' + error.message);
-      
-      // Revert local state on error
-      setAvailabilityData(prev => ({
+    // Use existing document ID if available, otherwise create new document with date-based ID
+    const existingDocId = documentMap[dayKey];
+    let docRef;
+    
+    if (existingDocId) {
+      console.log(`📝 Updating existing document: ${existingDocId}`);
+      docRef = doc(db, 'availability', existingDocId);
+    } else {
+      console.log(`📄 Creating new document for date: ${dayKey}`);
+      const newDocId = `${clinicId}-${dayKey}`;
+      docRef = doc(db, 'availability', newDocId);
+      // Update document map for future reference
+      setDocumentMap(prev => ({
         ...prev,
-        [dayKey]: {
-          ...prev[dayKey],
-          isOffDay: !prev[dayKey].isOffDay
-        },
+        [dayKey]: newDocId
       }));
     }
-  };
+
+    // Always update/create the document instead of deleting
+    await setDoc(docRef, firestoreData, { merge: false });
+    
+    console.log(`✅ Document ${newOffDayValue ? 'marked as off day' : 'marked as available day with all slots enabled'} for ${dayKey}`);
+    
+  } catch (error) {
+    console.error('❌ Error updating day status:', error);
+    alert('Error updating day status: ' + error.message);
+    
+    // Revert local state on error
+    setAvailabilityData(prev => ({
+      ...prev,
+      [dayKey]: {
+        ...prev[dayKey],
+        isOffDay: !prev[dayKey].isOffDay
+      },
+    }));
+  }
+};
 
   // Get week range text
   const getWeekRangeText = () => {
