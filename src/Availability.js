@@ -358,7 +358,7 @@ const AvailabilityScheduler = () => {
     }
   };
 
-  // Enhanced off day toggle handler
+  // FIXED: Enhanced off day toggle handler - No more document deletion
   const handleOffDayToggle = async (dayKey) => {
     if (!clinicId) {
       alert('Please select a clinic first');
@@ -374,71 +374,77 @@ const AvailabilityScheduler = () => {
       
       console.log(`📊 Off day status: ${currentOffDayValue} → ${newOffDayValue}`);
       
+      // Update local state first for immediate UI feedback
       const updatedAvailabilityData = {
         ...availabilityData,
         [dayKey]: {
           ...currentData,
-          isOffDay: newOffDayValue
+          isOffDay: newOffDayValue,
+          // If turning OFF the day, set all slots to false
+          // If turning ON the day, keep existing slots or set to false by default
+          slots: newOffDayValue 
+            ? timeSlots.reduce((acc, slot) => {
+                acc[slot] = false;
+                return acc;
+              }, {})
+            : currentData.slots || timeSlots.reduce((acc, slot) => {
+                acc[slot] = false;
+                return acc;
+              }, {})
         },
       };
       
       setAvailabilityData(updatedAvailabilityData);
 
       const updatedDayData = updatedAvailabilityData[dayKey];
-      const existingDocId = documentMap[dayKey];
       
-      if (newOffDayValue) {
-        // Delete the existing document if it exists
-        if (existingDocId) {
-          const docRef = doc(db, 'availability', existingDocId);
-          await deleteDoc(docRef);
-          console.log(`🗑️ Document deleted for off day: ${dayKey} (ID: ${existingDocId})`);
-          
-          // Remove from document map
-          setDocumentMap(prev => {
-            const newMap = { ...prev };
-            delete newMap[dayKey];
-            return newMap;
-          });
-        }
-      } else {
-        // Create/update document with availableDay = true
-        const firestoreSlots = timeSlots.map(timeSlot => {
-          const firestoreTime = convertTimeToFirestore(timeSlot);
-          const isAvailable = updatedDayData.slots[timeSlot] || false;
-          
-          return {
-            time: firestoreTime,
-            availableSlot: isAvailable
-          };
-        });
-
-        firestoreSlots.sort((a, b) => a.time.localeCompare(b.time));
-
-        const firestoreData = {
-          clinicId: clinicId,
-          date: dayKey,
-          availableDay: true,
-          slots: firestoreSlots
+      // Prepare Firestore data with ALL time slots
+      const firestoreSlots = timeSlots.map(timeSlot => {
+        const firestoreTime = convertTimeToFirestore(timeSlot);
+        // If it's an off day, set all slots to false
+        // Otherwise, use the actual slot availability
+        const isAvailable = newOffDayValue ? false : (updatedDayData.slots[timeSlot] || false);
+        
+        return {
+          time: firestoreTime,
+          availableSlot: isAvailable
         };
+      });
 
-        let docRef;
-        if (existingDocId) {
-          console.log(`📝 Updating existing document: ${existingDocId}`);
-          docRef = doc(db, 'availability', existingDocId);
-        } else {
-          console.log(`📄 Creating new document for date: ${dayKey}`);
-          const newDocId = `${clinicId}-${dayKey}`;
-          docRef = doc(db, 'availability', newDocId);
-          setDocumentMap(prev => ({
-            ...prev,
-            [dayKey]: newDocId
-          }));
-        }
+      // Sort slots by time for consistency
+      firestoreSlots.sort((a, b) => a.time.localeCompare(b.time));
 
-        await setDoc(docRef, firestoreData, { merge: false });
-        console.log(`✅ Document updated for available day: ${dayKey}`);
+      const firestoreData = {
+        clinicId: clinicId,
+        date: dayKey,
+        availableDay: !newOffDayValue, // availableDay is the opposite of isOffDay
+        slots: firestoreSlots
+      };
+
+      console.log('💾 Firestore data being saved:', JSON.stringify(firestoreData, null, 2));
+
+      // Use existing document ID if available, otherwise create new document with date-based ID
+      const existingDocId = documentMap[dayKey];
+      let docRef;
+      
+      if (existingDocId) {
+        console.log(`📝 Updating existing document: ${existingDocId}`);
+        docRef = doc(db, 'availability', existingDocId);
+      } else {
+        console.log(`📄 Creating new document for date: ${dayKey}`);
+        const newDocId = `${clinicId}-${dayKey}`;
+        docRef = doc(db, 'availability', newDocId);
+        // Update document map for future reference
+        setDocumentMap(prev => ({
+          ...prev,
+          [dayKey]: newDocId
+        }));
       }
+
+      // Always update/create the document instead of deleting
+      await setDoc(docRef, firestoreData, { merge: false });
+      
+      console.log(`✅ Document ${newOffDayValue ? 'marked as off day' : 'marked as available day'} for ${dayKey}`);
       
     } catch (error) {
       console.error('❌ Error updating day status:', error);
@@ -497,22 +503,11 @@ const AvailabilityScheduler = () => {
         
         if (!dayData) return;
 
-        if (dayData.isOffDay) {
-          if (existingDocId) {
-            try {
-              const docRef = doc(db, 'availability', existingDocId);
-              await deleteDoc(docRef);
-              console.log(`🗑️ Document deleted for off day: ${dayKey}`);
-            } catch (error) {
-              console.log(`ℹ️ Document for ${dayKey} does not exist or already deleted`);
-            }
-          }
-          return;
-        }
-
+        // FIXED: No longer delete documents for off days
         const firestoreSlots = timeSlots.map(timeSlot => {
           const firestoreTime = convertTimeToFirestore(timeSlot);
-          const isAvailable = dayData.slots[timeSlot] || false;
+          // If it's an off day, set all slots to false
+          const isAvailable = dayData.isOffDay ? false : (dayData.slots[timeSlot] || false);
           
           return {
             time: firestoreTime,
@@ -525,7 +520,7 @@ const AvailabilityScheduler = () => {
         const firestoreData = {
           clinicId: clinicId,
           date: dayKey,
-          availableDay: true,
+          availableDay: !dayData.isOffDay, // availableDay is opposite of isOffDay
           slots: firestoreSlots
         };
 
@@ -538,7 +533,7 @@ const AvailabilityScheduler = () => {
         }
 
         await setDoc(docRef, firestoreData, { merge: false });
-        console.log(`✅ Document saved for ${dayKey}`);
+        console.log(`✅ Document saved for ${dayKey} (${dayData.isOffDay ? 'OFF DAY' : 'AVAILABLE DAY'})`);
       });
 
       await Promise.all(savePromises);
