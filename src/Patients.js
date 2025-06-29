@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -17,81 +17,12 @@ import {
   IconButton,
   Paper,
   Collapse,
+  CircularProgress,
 } from "@mui/material";
 import { Search as SearchIcon, Add as AddIcon, People as PeopleIcon, Email, Phone, Description, Event, ExpandMore, ExpandLess } from "@mui/icons-material";
 import DuoIcon from '@mui/icons-material/Duo';
-
-// Mock data
-const patients = [
-  {
-    id: "p1",
-    name: "John Smith",
-    initials: "JS",
-    email: "john.smith@example.com",
-    phone: "+1 (555) 123-4567",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    status: "active",
-    documentsCount: 5,
-  },
-  {
-    id: "p2",
-    name: "Emily Johnson",
-    initials: "EJ",
-    email: "emily.johnson@example.com",
-    phone: "+1 (555) 987-6543",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
-    status: "active",
-    documentsCount: 3,
-  },
-  {
-    id: "p3",
-    name: "Michael Brown",
-    initials: "MB",
-    email: "michael.brown@example.com",
-    phone: "+1 (555) 456-7890",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-    status: "active",
-    documentsCount: 7,
-  },
-  {
-    id: "p4",
-    name: "Sarah Wilson",
-    initials: "SW",
-    email: "sarah.wilson@example.com",
-    phone: "+1 (555) 987-1234",
-    status: "pending",
-    documentsCount: 2,
-  },
-  {
-    id: "p5",
-    name: "Robert Davis",
-    initials: "RD",
-    email: "robert.davis@example.com",
-    phone: "+1 (555) 321-7654",
-    status: "pending",
-    documentsCount: 1,
-  },
-  {
-    id: "p6",
-    name: "Jennifer Lee",
-    initials: "JL",
-    email: "jennifer.lee@example.com",
-    phone: "+1 (555) 654-3210",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45), // 45 days ago
-    status: "inactive",
-    documentsCount: 4,
-  },
-  {
-    id: "p7",
-    name: "William Martinez",
-    initials: "WM",
-    email: "william.martinez@example.com",
-    phone: "+1 (555) 246-8101",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60), // 60 days ago
-    status: "inactive",
-    documentsCount: 2,
-  },
-];
+import { db } from './firebase'; // Adjust import path as needed
+import { collection, getDocs } from 'firebase/firestore';
 
 const tabOptions = [
   { label: "All", value: "all" },
@@ -117,6 +48,56 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
   const [sortBy, setSortBy] = useState("nameAsc");
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch patients from Firestore
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoading(true);
+        const usersCollection = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersCollection);
+        
+        const fetchedPatients = usersSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Unknown',
+            initials: getInitials(data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim()),
+            email: data.email || '',
+            phone: data.phone || data.phoneNumber || '',
+            lastVisit: data.lastVisit ? data.lastVisit.toDate() : null,
+            status: data.status || 'active',
+            documentsCount: data.documentsCount || 0,
+            documents: data.documents || []
+          };
+        });
+        
+        setPatients(fetchedPatients);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching patients:', err);
+        setError('Failed to fetch patients data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, []);
+
+  // Helper function to generate initials
+  const getInitials = (name) => {
+    if (!name) return 'NA';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   // Filter and sort patients
   const filteredPatients = patients
@@ -160,6 +141,35 @@ const Patients = () => {
   const handleContactPatient = (patientId, method) => {
     alert(`Contacting patient #${patientId} via ${method}`);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading patients...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          Error Loading Patients
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error}
+        </Typography>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()} 
+          sx={{ mt: 2 }}
+        >
+          Retry
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
@@ -422,9 +432,9 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
         <Collapse in={documentsExpanded}>
           <Box mt={2}>
             {patient.documents && patient.documents.length > 0 ? (
-              patient.documents.map((doc) => (
+              patient.documents.map((doc, index) => (
                 <Box
-                  key={doc.id}
+                  key={doc.id || index}
                   display="flex"
                   justifyContent="space-between"
                   alignItems="center"
@@ -435,10 +445,10 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
                 >
                   <Box>
                     <Typography variant="body2" fontWeight={600}>
-                      {doc.title}
+                      {doc.title || doc.name || 'Untitled Document'}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      {doc.type.toUpperCase()} • Uploaded{" "}
+                      {(doc.type || 'document').toUpperCase()} • Uploaded{" "}
                     </Typography>
                   </Box>
                 </Box>
