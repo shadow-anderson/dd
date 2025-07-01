@@ -283,6 +283,28 @@ const Patients = () => {
     alert(`Contacting patient #${patientId} via ${method}`);
   };
 
+  // Google Meet handler
+  const handleGoogleMeet = (patientId, patientEmail) => {
+    // Generate a Google Meet link (in a real app, you'd integrate with Google Calendar API)
+    const meetingSubject = encodeURIComponent(`Medical Consultation - Patient ${patientId}`);
+    const meetingBody = encodeURIComponent(`Online medical consultation session with patient: ${patientEmail}`);
+    
+    // Option 1: Open Google Calendar to create a new event with Meet
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${meetingSubject}&details=${meetingBody}&dates=${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${new Date(Date.now() + 3600000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`;
+    
+    // Option 2: Direct Google Meet link (simplified)
+    // const meetUrl = 'https://meet.google.com/new';
+    
+    window.open(calendarUrl, '_blank');
+    
+    // You could also show a snackbar notification
+    setSnackbar({
+      open: true,
+      message: `Google Meet session initiated for ${patientEmail}`,
+      severity: 'success'
+    });
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -402,6 +424,7 @@ const Patients = () => {
                 onSchedule={handleScheduleAppointment}
                 onViewDocuments={handleViewDocuments}
                 onContact={handleContactPatient}
+                onGoogleMeet={handleGoogleMeet}
               />
             </Grid>
           ))
@@ -560,7 +583,7 @@ const Patients = () => {
 };
 
 // MUI PatientCard
-function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
+function PatientCard({ patient, onSchedule, onViewDocuments, onContact, onGoogleMeet }) {
   const [documentsExpanded, setDocumentsExpanded] = useState(false);
   return (
     <Card
@@ -669,7 +692,7 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
             color="primary"
             variant="outlined"
             startIcon={<DuoIcon />}
-            onClick={() => onSchedule(patient.id)}
+            onClick={() => onGoogleMeet(patient.id, patient.email)}
           >
             Meet
           </Button>
