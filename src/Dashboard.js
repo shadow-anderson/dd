@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +14,8 @@ import {
   LinearProgress,
   Fade,
   Stack,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
@@ -33,73 +35,20 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import StarIcon from '@mui/icons-material/Star';
 
-// Enhanced mock data
-const dashboardStats = {
-  totalPatients: {
-    value: 247,
-    change: 12,
-    trend: 'up',
-    icon: <PersonOutlineIcon />,
-    label: 'Total Patients',
-    subtext: 'vs last month',
-    progress: 78
-  },
-  appointments: {
-    value: 8,
-    completed: 3,
-    upcoming: 5,
-    icon: <AccessTimeIcon />,
-    label: "Today's Appointments",
-    subtext: 'completed, upcoming',
-    progress: 62
-  },
-  documents: {
-    value: 14,
-    icon: <ArticleOutlinedIcon />,
-    label: 'New Documents',
-    subtext: 'This week',
-    progress: 45
-  },
-  revenue: {
-    value: 8429,
-    change: 8,
-    trend: 'up',
-    icon: <MonetizationOnOutlinedIcon />,
-    label: 'Revenue',
-    subtext: 'vs last month',
-    progress: 85
-  }
-};
+// Import Firestore functions
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  Timestamp 
+} from 'firebase/firestore';
 
-// Mock appointments data
-const upcomingAppointments = [
-  {
-    id: 1,
-    patientName: 'John Smith',
-    type: 'video',
-    time: '09:41 am',
-    date: '24/3/2025',
-    startsIn: '29 minutes',
-  },
-  {
-    id: 2,
-    patientName: 'Emily Johnson',
-    type: 'phone',
-    time: '11:11 am',
-    date: '24/3/2025',
-    startsIn: 'about 2 hours',
-  },
-  {
-    id: 3,
-    patientName: 'Michael Brown',
-    type: 'in-person',
-    time: '12:11 pm',
-    date: '24/3/2025',
-    startsIn: 'about 3 hours',
-  },
-];
+import { db } from './firebase'; 
 
-// Quick action buttons data
+// Quick action buttons data (keeping this as static)
 const quickActions = [
   { label: 'New Patient', icon: <PersonAddIcon />, color: '#4CAF50' },
   { label: 'Schedule', icon: <CalendarMonthIcon />, color: '#2196F3' },
@@ -109,7 +58,7 @@ const quickActions = [
   { label: 'Room Status', icon: <MeetingRoomIcon />, color: '#607D8B' },
 ];
 
-// Doctor information
+// Doctor information (you might want to fetch this from Firestore too)
 const doctorInfo = {
   name: 'Dr. Sarah Chen',
   role: 'Cardiologist',
@@ -117,8 +66,29 @@ const doctorInfo = {
 };
 
 // Enhanced StatCard Component
-const StatCard = ({ data }) => {
+const StatCard = ({ data, loading }) => {
   const theme = useTheme();
+  
+  if (loading) {
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: 4,
+          height: '100%',
+          background: '#fff',
+          border: '1px solid',
+          borderColor: alpha(theme.palette.primary.main, 0.1),
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <CircularProgress size={40} />
+      </Paper>
+    );
+  }
   
   return (
     <Fade in timeout={500}>
@@ -157,7 +127,7 @@ const StatCard = ({ data }) => {
             <MoreVertIcon fontSize="small" />
           </IconButton>
         </Box>
-          <Typography 
+        <Typography 
           sx={{ 
             mb: 1, 
             fontWeight: 700,
@@ -278,7 +248,36 @@ const AppointmentCard = ({ appointment }) => {
     }
   };
 
-  const color = getTypeColor(appointment.type);
+  // Helper function to format time from Firestore timestamp
+  const formatTime = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Helper function to format date from Firestore timestamp
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString();
+  };
+
+  // Helper function to calculate time until appointment
+  const getTimeUntilAppointment = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const appointmentTime = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = appointmentTime - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffMs < 0) return 'Past due';
+    if (diffHours === 0) return `${diffMinutes} minutes`;
+    if (diffHours < 24) return `about ${diffHours} hours`;
+    return `${Math.floor(diffHours / 24)} days`;
+  };
+
+  const color = getTypeColor(appointment.type || 'in-person');
 
   return (
     <Fade in timeout={500}>
@@ -312,7 +311,7 @@ const AppointmentCard = ({ appointment }) => {
               flexShrink: 0,
             }}
           >
-            {getAppointmentIcon(appointment.type)}
+            {getAppointmentIcon(appointment.type || 'in-person')}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography 
@@ -324,12 +323,12 @@ const AppointmentCard = ({ appointment }) => {
               }} 
               noWrap
             >
-              {appointment.patientName}
+              {appointment.patientName || appointment.patient?.name || 'Unknown Patient'}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
               <Chip
                 size="small"
-                label={appointment.type.charAt(0).toUpperCase() + appointment.type.slice(1)}
+                label={(appointment.type || 'in-person').charAt(0).toUpperCase() + (appointment.type || 'in-person').slice(1)}
                 sx={{
                   bgcolor: alpha(color.main, 0.1),
                   color: color.main,
@@ -339,7 +338,7 @@ const AppointmentCard = ({ appointment }) => {
                 }}
               />
               <Typography variant="body2" color="text.secondary" noWrap>
-                {`${appointment.time} • Starts in ${appointment.startsIn}`}
+                {`${formatTime(appointment.dateTime)} • Starts in ${getTimeUntilAppointment(appointment.dateTime)}`}
               </Typography>
             </Stack>
           </Box>
@@ -373,7 +372,7 @@ const AppointmentCard = ({ appointment }) => {
               Reschedule
             </Button>
           </Tooltip>
-          {appointment.type === 'video' && (
+          {(appointment.type === 'video') && (
             <Tooltip title="Start video call early">
               <Button
                 variant="contained"
@@ -433,9 +432,211 @@ const QuickActionButton = ({ action }) => {
   );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ onNavigateToAppointments }) => {
   const theme = useTheme();
   const mainBlue = theme.palette.primary.main;
+  
+  // State for dashboard data
+  const [dashboardStats, setDashboardStats] = useState({});
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch dashboard data from Firestore
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch total patients from /users collection
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const totalPatients = usersSnapshot.size;
+
+        // Fetch today's appointments from /appointments collection
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+        const appointmentsQuery = query(
+          collection(db, 'appointments'),
+          where('dateTime', '>=', Timestamp.fromDate(todayStart)),
+          where('dateTime', '<', Timestamp.fromDate(todayEnd)),
+          orderBy('dateTime', 'asc')
+        );
+        
+        const appointmentsSnapshot = await getDocs(appointmentsQuery);
+        const appointmentsData = appointmentsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        // Calculate completed and upcoming appointments
+        const now = new Date();
+        const completedAppointments = appointmentsData.filter(apt => 
+          apt.dateTime?.toDate() < now
+        ).length;
+        const upcomingAppointmentsCount = appointmentsData.filter(apt => 
+          apt.dateTime?.toDate() >= now
+        ).length;
+
+        // Fetch all appointments for this week to calculate documents/revenue
+        const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 7);
+
+        const weekAppointmentsQuery = query(
+          collection(db, 'appointments'),
+          where('dateTime', '>=', Timestamp.fromDate(weekStart)),
+          where('dateTime', '<', Timestamp.fromDate(weekEnd))
+        );
+        
+        const weekAppointmentsSnapshot = await getDocs(weekAppointmentsQuery);
+        const weekAppointmentsData = weekAppointmentsSnapshot.docs.map(doc => doc.data());
+
+        // Fetch documents from /documents collection
+        const documentsSnapshot = await getDocs(collection(db, 'documents'));
+        const documentsCount = documentsSnapshot.size;
+
+        // Calculate mock revenue (you might want to add actual revenue field to appointments)
+        const weekRevenue = weekAppointmentsData.length * 150; // Assuming $150 per appointment
+
+        // Set dashboard stats
+        setDashboardStats({
+          totalPatients: {
+            value: totalPatients,
+            change: 12, // You might want to calculate this from historical data
+            trend: 'up',
+            icon: <PersonOutlineIcon />,
+            label: 'Total Patients',
+            subtext: 'vs last month',
+            progress: Math.min((totalPatients / 300) * 100, 100) // Assuming target of 300 patients
+          },
+          appointments: {
+            value: appointmentsData.length,
+            completed: completedAppointments,
+            upcoming: upcomingAppointmentsCount,
+            icon: <AccessTimeIcon />,
+            label: "Today's Appointments",
+            subtext: 'completed, upcoming',
+            progress: appointmentsData.length > 0 ? (completedAppointments / appointmentsData.length) * 100 : 0
+          },
+          documents: {
+            value: documentsCount,
+            icon: <ArticleOutlinedIcon />,
+            label: 'New Documents',
+            subtext: 'This week',
+            progress: Math.min((documentsCount / 20) * 100, 100) // Assuming target of 20 documents per week
+          },
+          revenue: {
+            value: weekRevenue,
+            change: 8, // You might want to calculate this from historical data
+            trend: 'up',
+            icon: <MonetizationOnOutlinedIcon />,
+            label: 'Revenue',
+            subtext: 'vs last month',
+            progress: Math.min((weekRevenue / 10000) * 100, 100) // Assuming target of $10,000 per week
+          }
+        });
+
+        // Set upcoming appointments (limit to next 3)
+        const upcomingOnly = appointmentsData
+          .filter(apt => apt.dateTime?.toDate() >= now)
+          .slice(0, 3);
+        
+        // For each appointment, fetch the patient details from /users collection
+        const appointmentsWithPatientDetails = await Promise.all(upcomingOnly.map(async (apt) => {
+          if (apt.patientId) {
+            try {
+              // Query users collection to find patient by ID
+              const usersQuery = query(
+                collection(db, 'users'), 
+                where('__name__', '==', apt.patientId) // Use document ID to match
+              );
+              const usersSnapshot = await getDocs(usersQuery);
+              
+              if (!usersSnapshot.empty) {
+                const patientData = usersSnapshot.docs[0].data();
+                return {
+                  ...apt,
+                  patientName: patientData.name || 
+                              `${patientData.firstName || ''} ${patientData.lastName || ''}`.trim() || 
+                              apt.patientName || 'Unknown Patient',
+                  patientEmail: patientData.email || apt.patientEmail,
+                  patientPhone: patientData.phone || patientData.phoneNumber || apt.patientPhone
+                };
+              } else {
+                // If patient not found by document ID, try by custom id field
+                const usersByIdQuery = query(
+                  collection(db, 'users'),
+                  where('id', '==', apt.patientId)
+                );
+                const usersByIdSnapshot = await getDocs(usersByIdQuery);
+                
+                if (!usersByIdSnapshot.empty) {
+                  const patientData = usersByIdSnapshot.docs[0].data();
+                  return {
+                    ...apt,
+                    patientName: patientData.name || 
+                                `${patientData.firstName || ''} ${patientData.lastName || ''}`.trim() || 
+                                apt.patientName || 'Unknown Patient',
+                    patientEmail: patientData.email || apt.patientEmail,
+                    patientPhone: patientData.phone || patientData.phoneNumber || apt.patientPhone
+                  };
+                }
+              }
+            } catch (err) {
+              console.error('Error fetching patient details:', err);
+            }
+          }
+          return {
+            ...apt,
+            patientName: apt.patientName || apt.patient?.name || 'Unknown Patient'
+          };
+        }));
+        
+        setUpcomingAppointments(appointmentsWithPatientDetails);
+
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Handle navigation to Appointments page
+  const handleViewAllAppointments = () => {
+    if (onNavigateToAppointments) {
+      onNavigateToAppointments();
+    } else {
+      // Fallback: try to find and click the appointments nav item
+      const sidebarItems = document.querySelectorAll('.MuiListItem-root');
+      if (sidebarItems && sidebarItems.length > 1) {
+        sidebarItems[1].click(); // Assuming appointments is at index 1
+      }
+    }
+  };
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()}
+          sx={{ borderRadius: 2 }}
+        >
+          Retry
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ position: 'relative' }}>
@@ -468,7 +669,7 @@ const Dashboard = () => {
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {Object.entries(dashboardStats).map(([key, data]) => (
           <Grid item xs={12} sm={6} md={3} key={key}>
-            <StatCard data={data} />
+            <StatCard data={data} loading={loading} />
           </Grid>
         ))}
       </Grid>
@@ -485,7 +686,7 @@ const Dashboard = () => {
           Upcoming Appointments
           <Chip
             size="small"
-            label={upcomingAppointments.length}
+            label={loading ? '...' : upcomingAppointments.length}
             sx={{ 
               bgcolor: alpha(theme.palette.primary.main, 0.1),
               color: theme.palette.primary.main,
@@ -495,6 +696,7 @@ const Dashboard = () => {
         </Typography>
         <Button
           endIcon={<ArrowForwardIcon />}
+          onClick={handleViewAllAppointments}
           sx={{
             color: theme.palette.primary.main,
             '&:hover': {
@@ -505,13 +707,29 @@ const Dashboard = () => {
           View all appointments
         </Button>
       </Box>
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {upcomingAppointments.map((appointment) => (
-          <Grid item xs={12} md={4} key={appointment.id}>
-            <AppointmentCard appointment={appointment} />
-          </Grid>
-        ))}
-      </Grid>
+      
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : upcomingAppointments.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No upcoming appointments today
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Your schedule is clear for today!
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {upcomingAppointments.map((appointment) => (
+            <Grid item xs={12} md={4} key={appointment.id}>
+              <AppointmentCard appointment={appointment} />
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
       {/* Quick Actions Section */}
       <Divider sx={{ my: 4 }} />
