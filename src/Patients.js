@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -17,81 +17,29 @@ import {
   IconButton,
   Paper,
   Collapse,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import { Search as SearchIcon, Add as AddIcon, People as PeopleIcon, Email, Phone, Description, Event, ExpandMore, ExpandLess } from "@mui/icons-material";
+import { 
+  Search as SearchIcon, 
+  Add as AddIcon, 
+  People as PeopleIcon, 
+  Email, 
+  Phone, 
+  Description, 
+  Event, 
+  ExpandMore, 
+  ExpandLess,
+  Close as CloseIcon 
+} from "@mui/icons-material";
 import DuoIcon from '@mui/icons-material/Duo';
-
-// Mock data
-const patients = [
-  {
-    id: "p1",
-    name: "John Smith",
-    initials: "JS",
-    email: "john.smith@example.com",
-    phone: "+1 (555) 123-4567",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    status: "active",
-    documentsCount: 5,
-  },
-  {
-    id: "p2",
-    name: "Emily Johnson",
-    initials: "EJ",
-    email: "emily.johnson@example.com",
-    phone: "+1 (555) 987-6543",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
-    status: "active",
-    documentsCount: 3,
-  },
-  {
-    id: "p3",
-    name: "Michael Brown",
-    initials: "MB",
-    email: "michael.brown@example.com",
-    phone: "+1 (555) 456-7890",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-    status: "active",
-    documentsCount: 7,
-  },
-  {
-    id: "p4",
-    name: "Sarah Wilson",
-    initials: "SW",
-    email: "sarah.wilson@example.com",
-    phone: "+1 (555) 987-1234",
-    status: "pending",
-    documentsCount: 2,
-  },
-  {
-    id: "p5",
-    name: "Robert Davis",
-    initials: "RD",
-    email: "robert.davis@example.com",
-    phone: "+1 (555) 321-7654",
-    status: "pending",
-    documentsCount: 1,
-  },
-  {
-    id: "p6",
-    name: "Jennifer Lee",
-    initials: "JL",
-    email: "jennifer.lee@example.com",
-    phone: "+1 (555) 654-3210",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45), // 45 days ago
-    status: "inactive",
-    documentsCount: 4,
-  },
-  {
-    id: "p7",
-    name: "William Martinez",
-    initials: "WM",
-    email: "william.martinez@example.com",
-    phone: "+1 (555) 246-8101",
-    lastVisit: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60), // 60 days ago
-    status: "inactive",
-    documentsCount: 2,
-  },
-];
+import { db } from './firebase'; // Adjust import path as needed
+import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const tabOptions = [
   { label: "All", value: "all" },
@@ -117,6 +65,180 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
   const [sortBy, setSortBy] = useState("nameAsc");
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [addPatientOpen, setAddPatientOpen] = useState(false);
+  const [addPatientLoading, setAddPatientLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [newPatient, setNewPatient] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    city: '',
+    country: 'India',
+    role: 'patient'
+  });
+
+  // Fetch patients from Firestore
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoading(true);
+        const usersCollection = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersCollection);
+        
+        const fetchedPatients = usersSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Unknown',
+            initials: getInitials(data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim()),
+            email: data.email || '',
+            phone: data.phone || data.phoneNumber || '',
+            lastVisit: data.lastVisit ? data.lastVisit.toDate() : null,
+            status: data.status || 'active',
+            documentsCount: data.documentsCount || 0,
+            documents: data.documents || []
+          };
+        });
+        
+        setPatients(fetchedPatients);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching patients:', err);
+        setError('Failed to fetch patients data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, []);
+
+  // Helper function to generate initials
+  const getInitials = (name) => {
+    if (!name) return 'NA';
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Generate random password
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  // Handle add patient form submission
+  const handleAddPatient = async (e) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!newPatient.firstName || !newPatient.lastName || !newPatient.email || !newPatient.phone) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all required fields',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newPatient.email)) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a valid email address',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setAddPatientLoading(true);
+    
+    try {
+      const patientData = {
+        firstName: newPatient.firstName.trim(),
+        lastName: newPatient.lastName.trim(),
+        email: newPatient.email.trim().toLowerCase(),
+        phone: newPatient.phone.trim(),
+        password: newPatient.password || generateRandomPassword(),
+        city: newPatient.city,
+        country: newPatient.country,
+        role: newPatient.role,
+        status: 'active',
+        documentsCount: 0,
+        documents: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Add to Firestore
+      const docRef = await addDoc(collection(db, 'users'), patientData);
+      
+      // Update local state
+      const newPatientForState = {
+        id: docRef.id,
+        name: `${patientData.firstName} ${patientData.lastName}`,
+        initials: getInitials(`${patientData.firstName} ${patientData.lastName}`),
+        email: patientData.email,
+        phone: patientData.phone,
+        lastVisit: null,
+        status: patientData.status,
+        documentsCount: patientData.documentsCount,
+        documents: patientData.documents
+      };
+      
+      setPatients(prev => [...prev, newPatientForState]);
+      
+      // Reset form and close dialog
+      setNewPatient({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        password: '',
+        city: 'SRINAGAR',
+        country: 'India',
+        role: 'patient'
+      });
+      setAddPatientOpen(false);
+      
+      setSnackbar({
+        open: true,
+        message: 'Patient added successfully!',
+        severity: 'success'
+      });
+      
+    } catch (err) {
+      console.error('Error adding patient:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to add patient. Please try again.',
+        severity: 'error'
+      });
+    } finally {
+      setAddPatientLoading(false);
+    }
+  };
+
+  // Handle form input changes
+  const handleInputChange = (field, value) => {
+    setNewPatient(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   // Filter and sort patients
   const filteredPatients = patients
@@ -161,6 +283,57 @@ const Patients = () => {
     alert(`Contacting patient #${patientId} via ${method}`);
   };
 
+  // Google Meet handler
+  const handleGoogleMeet = (patientId, patientEmail) => {
+    // Generate a Google Meet link (in a real app, you'd integrate with Google Calendar API)
+    const meetingSubject = encodeURIComponent(`Medical Consultation - Patient ${patientId}`);
+    const meetingBody = encodeURIComponent(`Online medical consultation session with patient: ${patientEmail}`);
+    
+    // Option 1: Open Google Calendar to create a new event with Meet
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${meetingSubject}&details=${meetingBody}&dates=${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${new Date(Date.now() + 3600000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`;
+    
+    // Option 2: Direct Google Meet link (simplified)
+    // const meetUrl = 'https://meet.google.com/new';
+    
+    window.open(calendarUrl, '_blank');
+    
+    // You could also show a snackbar notification
+    setSnackbar({
+      open: true,
+      message: `Google Meet session initiated for ${patientEmail}`,
+      severity: 'success'
+    });
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>Loading patients...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          Error Loading Patients
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error}
+        </Typography>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()} 
+          sx={{ mt: 2 }}
+        >
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
       {/* Header */}
@@ -185,6 +358,7 @@ const Patients = () => {
           color="primary"
           startIcon={<AddIcon />}
           sx={{ mt: { xs: 2, sm: 0 } }}
+          onClick={() => setAddPatientOpen(true)}
         >
           Add New Patient
         </Button>
@@ -250,6 +424,7 @@ const Patients = () => {
                 onSchedule={handleScheduleAppointment}
                 onViewDocuments={handleViewDocuments}
                 onContact={handleContactPatient}
+                onGoogleMeet={handleGoogleMeet}
               />
             </Grid>
           ))
@@ -277,12 +452,138 @@ const Patients = () => {
           </Grid>
         )}
       </Grid>
+
+      {/* Add Patient Dialog */}
+      <Dialog 
+        open={addPatientOpen} 
+        onClose={() => setAddPatientOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            Add New Patient
+            <IconButton onClick={() => setAddPatientOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <form onSubmit={handleAddPatient}>
+          <DialogContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  label="First Name"
+                  value={newPatient.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Last Name"
+                  value={newPatient.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={newPatient.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Phone"
+                  value={newPatient.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  margin="normal"
+                  placeholder="+919368075651"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={newPatient.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Country"
+                  value={newPatient.country}
+                  onChange={(e) => handleInputChange('country', e.target.value)}
+                  margin="normal"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Password (Optional - will be generated if empty)"
+                  type="password"
+                  value={newPatient.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  margin="normal"
+                  helperText="Leave empty to auto-generate a secure password"
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button 
+              onClick={() => setAddPatientOpen(false)}
+              disabled={addPatientLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              variant="contained"
+              disabled={addPatientLoading}
+              startIcon={addPatientLoading ? <CircularProgress size={16} /> : <AddIcon />}
+            >
+              {addPatientLoading ? 'Adding...' : 'Add Patient'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
 
 // MUI PatientCard
-function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
+function PatientCard({ patient, onSchedule, onViewDocuments, onContact, onGoogleMeet }) {
   const [documentsExpanded, setDocumentsExpanded] = useState(false);
   return (
     <Card
@@ -391,7 +692,7 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
             color="primary"
             variant="outlined"
             startIcon={<DuoIcon />}
-            onClick={() => onSchedule(patient.id)}
+            onClick={() => onGoogleMeet(patient.id, patient.email)}
           >
             Meet
           </Button>
@@ -422,9 +723,9 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
         <Collapse in={documentsExpanded}>
           <Box mt={2}>
             {patient.documents && patient.documents.length > 0 ? (
-              patient.documents.map((doc) => (
+              patient.documents.map((doc, index) => (
                 <Box
-                  key={doc.id}
+                  key={doc.id || index}
                   display="flex"
                   justifyContent="space-between"
                   alignItems="center"
@@ -435,10 +736,10 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact }) {
                 >
                   <Box>
                     <Typography variant="body2" fontWeight={600}>
-                      {doc.title}
+                      {doc.title || doc.name || 'Untitled Document'}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
-                      {doc.type.toUpperCase()} • Uploaded{" "}
+                      {(doc.type || 'document').toUpperCase()} • Uploaded{" "}
                     </Typography>
                   </Box>
                 </Box>
