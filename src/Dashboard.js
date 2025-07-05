@@ -34,6 +34,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import StarIcon from '@mui/icons-material/Star';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 // Import Firestore functions
 import { 
@@ -222,9 +223,12 @@ const StatCard = ({ data, loading }) => {
   );
 };
 
-// Enhanced AppointmentCard Component
+// Enhanced AppointmentCard Component with prominent Google Meet buttons
 const AppointmentCard = ({ appointment }) => {
   const theme = useTheme();
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [meetLinkCreated, setMeetLinkCreated] = useState(false);
+  const [meetLink, setMeetLink] = useState('');
   
   const getAppointmentIcon = (type) => {
     switch (type) {
@@ -248,33 +252,133 @@ const AppointmentCard = ({ appointment }) => {
     }
   };
 
-  // Helper function to format time from Firestore timestamp
-  const formatTime = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Generates a Google Meet link 
+const generateGoogleMeetLink = (appointmentId) => {
+  
+  let baseLink = 'https://meet.google.com/new';
+  
+  if (appointmentId) {
+    baseLink += `?appointment=${appointmentId}`;
+  }
+  return baseLink;
+};
+
+  // Handle creating Google Meet link
+  const handleCreateMeet = () => {
+    const newMeetLink = generateGoogleMeetLink(appointment.id);
+    setMeetLink(newMeetLink);
+    setMeetLinkCreated(true);
+    
   };
 
-  // Helper function to format date from Firestore timestamp
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  // Handle joining Google Meet
+  const handleJoinMeet = () => {
+    if (meetLink) {
+      window.open(meetLink, '_blank');
+    } else {
+      // Fallback - create new meeting
+      const newMeetLink = generateGoogleMeetLink(appointment.id);
+      window.open(newMeetLink, '_blank');
+    }
+  };
+
+  // Handle start early button click (existing functionality)
+  const handleStartEarly = () => {
+    if (appointment.type === 'video') {
+      const newMeetLink = generateGoogleMeetLink(appointment.id);
+      window.open(newMeetLink, '_blank');
+    } else if (appointment.type === 'phone') {
+      // Handle phone call logic here
+      if (appointment.patientPhone) {
+        window.open(`tel:${appointment.patientPhone}`, '_self');
+      } else {
+        alert('Patient phone number not available');
+      }
+    }
+  };
+
+  // Handle copy Google Meet link
+  const handleCopyMeetLink = async () => {
+    try {
+      const linkToCopy = meetLink || generateGoogleMeetLink(appointment.id);
+      await navigator.clipboard.writeText(linkToCopy);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  // Check if appointment is within 30 minutes
+  const isWithin30Minutes = () => {
+    if (!appointment.appointmentDate || !appointment.appointmentTime) return false;
+    
+    try {
+      const appointmentDateTime = new Date(`${appointment.appointmentDate} ${appointment.appointmentTime}`);
+      const now = new Date();
+      const diffMs = appointmentDateTime - now;
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      
+      // Allow start early if within 30 minutes or if appointment time has passed
+      return diffMinutes <= 30;
+    } catch (error) {
+      console.error('Error checking appointment time:', error);
+      return false;
+    }
+  };
+
+  // Helper function to format time from string
+  const formatTime = (timeString) => {
+    if (!timeString) return 'N/A';
+    // If it's already formatted, return as is
+    if (timeString.includes(':')) return timeString;
+    // If it's a number, format it
+    return timeString;
+  };
+
+  // Helper function to format date from string
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
     return date.toLocaleDateString();
   };
 
   // Helper function to calculate time until appointment
-  const getTimeUntilAppointment = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    const appointmentTime = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diffMs = appointmentTime - now;
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const getTimeUntilAppointment = (appointmentDate, appointmentTime) => {
+    if (!appointmentDate || !appointmentTime) return 'N/A';
     
-    if (diffMs < 0) return 'Past due';
-    if (diffHours === 0) return `${diffMinutes} minutes`;
-    if (diffHours < 24) return `about ${diffHours} hours`;
-    return `${Math.floor(diffHours / 24)} days`;
+    try {
+      // Create appointment datetime from date and time strings
+      const appointmentDateTime = new Date(`${appointmentDate} ${appointmentTime}`);
+      const now = new Date();
+      const diffMs = appointmentDateTime - now;
+      
+      if (diffMs < 0) return 'Past due';
+      
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMinutes / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+      if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+    } catch (error) {
+      console.error('Error calculating time until appointment:', error);
+      return 'N/A';
+    }
+  };
+
+  // Helper function to get day name
+  const getDayName = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
   };
 
   const color = getTypeColor(appointment.type || 'in-person');
@@ -338,13 +442,13 @@ const AppointmentCard = ({ appointment }) => {
                 }}
               />
               <Typography variant="body2" color="text.secondary" noWrap>
-                {`${formatTime(appointment.dateTime)} • Starts in ${getTimeUntilAppointment(appointment.dateTime)}`}
+                {`${getDayName(appointment.appointmentDate)} • ${formatTime(appointment.appointmentTime)} • Starts in ${getTimeUntilAppointment(appointment.appointmentDate, appointment.appointmentTime)}`}
               </Typography>
             </Stack>
           </Box>
         </Box>
 
-        {/* Actions Section */}
+        {/* Actions Section - Improved UI */}
         <Box 
           sx={{ 
             display: 'flex', 
@@ -352,45 +456,154 @@ const AppointmentCard = ({ appointment }) => {
             borderTop: 1,
             borderColor: alpha(theme.palette.divider, 0.1),
             pt: 2,
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
           }}
         >
-          <Tooltip title="Reschedule appointment">
-            <Button
-              variant="outlined"
-              size="small"
-              sx={{
-                borderRadius: 2,
-                borderColor: alpha(theme.palette.text.primary, 0.1),
-                color: theme.palette.text.primary,
-                '&:hover': {
-                  borderColor: theme.palette.text.primary,
-                  bgcolor: alpha(theme.palette.text.primary, 0.05),
-                },
-              }}
-            >
-              Reschedule
-            </Button>
-          </Tooltip>
-          {(appointment.type === 'video') && (
-            <Tooltip title="Start video call early">
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Tooltip title="Reschedule appointment">
+              <Button
+                variant="outlined"
+                size="small"
+                sx={{
+                  borderRadius: 2,
+                  borderColor: alpha(theme.palette.text.primary, 0.1),
+                  color: theme.palette.text.primary,
+                  '&:hover': {
+                    borderColor: theme.palette.text.primary,
+                    bgcolor: alpha(theme.palette.text.primary, 0.05),
+                  },
+                }}
+              >
+                Reschedule
+              </Button>
+            </Tooltip>
+
+            {/* Google Meet Button - Side by side with reschedule */}
+            {!meetLinkCreated ? (
               <Button
                 variant="contained"
                 size="small"
                 startIcon={<VideocamIcon />}
+                onClick={handleCreateMeet}
                 sx={{
                   borderRadius: 2,
-                  bgcolor: color.main,
+                  bgcolor: theme.palette.primary.main,
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 2,
+                  fontSize: '0.875rem',
+                  textTransform: 'none',
+                  minWidth: 120,
                   '&:hover': {
-                    bgcolor: color.dark,
+                    bgcolor: theme.palette.primary.dark,
                   },
                 }}
               >
-                Start Early
+                CREATE MEET
               </Button>
-            </Tooltip>
-          )}
+            ) : (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<VideocamIcon />}
+                onClick={handleJoinMeet}
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: theme.palette.primary.main,
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 2,
+                  fontSize: '0.875rem',
+                  textTransform: 'none',
+                  minWidth: 120,
+                  '&:hover': {
+                    bgcolor: theme.palette.primary.dark,
+                  },
+                }}
+              >
+                JOIN MEET
+              </Button>
+            )}
+
+            {/* Copy Google Meet Link Button - Always visible when link is created */}
+            {meetLinkCreated && (
+              <Tooltip title={copySuccess ? "Link copied!" : "Copy Google Meet link"}>
+                <Button
+                  variant="text"
+                  size="small"
+                  startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleCopyMeetLink}
+                  sx={{
+                    borderRadius: 2,
+                    color: copySuccess ? theme.palette.success.main : theme.palette.text.secondary,
+                    minWidth: 'auto',
+                    px: 1,
+                    fontSize: '0.75rem',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.text.primary, 0.05),
+                    },
+                  }}
+                >
+                  {copySuccess ? 'Copied!' : 'Copy Link'}
+                </Button>
+              </Tooltip>
+            )}
+          </Box>
+
+          {/* Start Early Button for Phone Appointments */}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {appointment.type === 'phone' && (
+              <Tooltip title="Call patient now">
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<PhoneIcon />}
+                  onClick={handleStartEarly}
+                  sx={{
+                    borderRadius: 2,
+                    bgcolor: color.main,
+                    minWidth: 'auto',
+                    '&:hover': {
+                      bgcolor: color.dark,
+                    },
+                  }}
+                >
+                  Call Now
+                </Button>
+              </Tooltip>
+            )}
+          </Box>
         </Box>
+
+        {/* Google Meet Link Display - Always visible when link is created */}
+        {meetLinkCreated && (
+          <Box 
+            sx={{ 
+              mt: 1,
+              p: 1.5,
+              bgcolor: alpha(theme.palette.success.main, 0.05),
+              borderRadius: 2,
+              border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+              Google Meet Link:
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem',
+                fontFamily: 'monospace',
+                wordBreak: 'break-all',
+                color: theme.palette.success.dark,
+              }}
+            >
+              {meetLink}
+            </Typography>
+          </Box>
+        )}
       </Paper>
     </Fade>
   );
@@ -453,53 +666,88 @@ const Dashboard = ({ onNavigateToAppointments }) => {
         const usersSnapshot = await getDocs(collection(db, 'users'));
         const totalPatients = usersSnapshot.size;
 
-        // Fetch today's appointments from /appointments collection
+        // Fetch appointments for the next 3 days from /appointments collection
         const today = new Date();
         const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+        const threeDaysFromNow = new Date(todayStart);
+        threeDaysFromNow.setDate(todayStart.getDate() + 3);
 
-        const appointmentsQuery = query(
-          collection(db, 'appointments'),
-          where('dateTime', '>=', Timestamp.fromDate(todayStart)),
-          where('dateTime', '<', Timestamp.fromDate(todayEnd)),
-          orderBy('dateTime', 'asc')
-        );
-        
-        const appointmentsSnapshot = await getDocs(appointmentsQuery);
-        const appointmentsData = appointmentsSnapshot.docs.map(doc => ({
+        // Format dates as strings for comparison (assuming appointmentDate is stored as string)
+        const todayString = todayStart.toISOString().split('T')[0];
+        const threeDaysString = threeDaysFromNow.toISOString().split('T')[0];
+
+        console.log('Fetching appointments between:', todayString, 'and', threeDaysString);
+
+        // Fetch all appointments since we need to filter by appointmentDate (string field)
+        const appointmentsSnapshot = await getDocs(collection(db, 'appointments'));
+        const allAppointments = appointmentsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
 
-        // Calculate completed and upcoming appointments
+        console.log('All appointments:', allAppointments);
+
+        // Filter appointments for the next 3 days
+        const upcomingAppointmentsData = allAppointments.filter(appointment => {
+          if (!appointment.appointmentDate) return false;
+          
+          const appointmentDate = new Date(appointment.appointmentDate);
+          const appointmentDateString = appointmentDate.toISOString().split('T')[0];
+          
+          return appointmentDateString >= todayString && appointmentDateString <= threeDaysString;
+        });
+
+        console.log('Filtered upcoming appointments:', upcomingAppointmentsData);
+
+        // Sort by date and time
+        upcomingAppointmentsData.sort((a, b) => {
+          const dateA = new Date(`${a.appointmentDate} ${a.appointmentTime || '00:00'}`);
+          const dateB = new Date(`${b.appointmentDate} ${b.appointmentTime || '00:00'}`);
+          return dateA - dateB;
+        });
+
+        // Get today's appointments for stats
+        const todayAppointments = allAppointments.filter(appointment => {
+          if (!appointment.appointmentDate) return false;
+          const appointmentDate = new Date(appointment.appointmentDate);
+          const appointmentDateString = appointmentDate.toISOString().split('T')[0];
+          return appointmentDateString === todayString;
+        });
+
+        // Calculate completed and upcoming appointments for today
         const now = new Date();
-        const completedAppointments = appointmentsData.filter(apt => 
-          apt.dateTime?.toDate() < now
-        ).length;
-        const upcomingAppointmentsCount = appointmentsData.filter(apt => 
-          apt.dateTime?.toDate() >= now
-        ).length;
+        const completedAppointments = todayAppointments.filter(apt => {
+          if (!apt.appointmentDate || !apt.appointmentTime) return false;
+          const appointmentDateTime = new Date(`${apt.appointmentDate} ${apt.appointmentTime}`);
+          return appointmentDateTime < now;
+        }).length;
+
+        const upcomingTodayCount = todayAppointments.filter(apt => {
+          if (!apt.appointmentDate || !apt.appointmentTime) return false;
+          const appointmentDateTime = new Date(`${apt.appointmentDate} ${apt.appointmentTime}`);
+          return appointmentDateTime >= now;
+        }).length;
 
         // Fetch all appointments for this week to calculate documents/revenue
         const weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
+        const weekStartString = weekStart.toISOString().split('T')[0];
+        const weekEndString = weekEnd.toISOString().split('T')[0];
 
-        const weekAppointmentsQuery = query(
-          collection(db, 'appointments'),
-          where('dateTime', '>=', Timestamp.fromDate(weekStart)),
-          where('dateTime', '<', Timestamp.fromDate(weekEnd))
-        );
-        
-        const weekAppointmentsSnapshot = await getDocs(weekAppointmentsQuery);
-        const weekAppointmentsData = weekAppointmentsSnapshot.docs.map(doc => doc.data());
+        const weekAppointments = allAppointments.filter(appointment => {
+          if (!appointment.appointmentDate) return false;
+          const appointmentDate = new Date(appointment.appointmentDate);
+          const appointmentDateString = appointmentDate.toISOString().split('T')[0];
+          return appointmentDateString >= weekStartString && appointmentDateString <= weekEndString;
+        });
 
         // Fetch documents from /documents collection
         const documentsSnapshot = await getDocs(collection(db, 'documents'));
         const documentsCount = documentsSnapshot.size;
 
         // Calculate mock revenue (you might want to add actual revenue field to appointments)
-        const weekRevenue = weekAppointmentsData.length * 150; // Assuming $150 per appointment
+        const weekRevenue = weekAppointments.length * 150; // Assuming $150 per appointment
 
         // Set dashboard stats
         setDashboardStats({
@@ -513,13 +761,13 @@ const Dashboard = ({ onNavigateToAppointments }) => {
             progress: Math.min((totalPatients / 300) * 100, 100) // Assuming target of 300 patients
           },
           appointments: {
-            value: appointmentsData.length,
+            value: todayAppointments.length,
             completed: completedAppointments,
-            upcoming: upcomingAppointmentsCount,
+            upcoming: upcomingTodayCount,
             icon: <AccessTimeIcon />,
             label: "Today's Appointments",
             subtext: 'completed, upcoming',
-            progress: appointmentsData.length > 0 ? (completedAppointments / appointmentsData.length) * 100 : 0
+            progress: todayAppointments.length > 0 ? (completedAppointments / todayAppointments.length) * 100 : 0
           },
           documents: {
             value: documentsCount,
@@ -539,61 +787,37 @@ const Dashboard = ({ onNavigateToAppointments }) => {
           }
         });
 
-        // Set upcoming appointments (limit to next 3)
-        const upcomingOnly = appointmentsData
-          .filter(apt => apt.dateTime?.toDate() >= now)
-          .slice(0, 3);
-        
         // For each appointment, fetch the patient details from /users collection
-        const appointmentsWithPatientDetails = await Promise.all(upcomingOnly.map(async (apt) => {
-          if (apt.patientId) {
-            try {
-              // Query users collection to find patient by ID
-              const usersQuery = query(
-                collection(db, 'users'), 
-                where('__name__', '==', apt.patientId) // Use document ID to match
-              );
-              const usersSnapshot = await getDocs(usersQuery);
-              
-              if (!usersSnapshot.empty) {
-                const patientData = usersSnapshot.docs[0].data();
-                return {
-                  ...apt,
-                  patientName: patientData.name || 
-                              `${patientData.firstName || ''} ${patientData.lastName || ''}`.trim() || 
-                              apt.patientName || 'Unknown Patient',
-                  patientEmail: patientData.email || apt.patientEmail,
-                  patientPhone: patientData.phone || patientData.phoneNumber || apt.patientPhone
-                };
-              } else {
-                // If patient not found by document ID, try by custom id field
-                const usersByIdQuery = query(
-                  collection(db, 'users'),
-                  where('id', '==', apt.patientId)
+        const appointmentsWithPatientDetails = await Promise.all(
+          upcomingAppointmentsData.slice(0, 6).map(async (apt) => { // Show up to 6 appointments
+            if (apt.patientId) {
+              try {
+                // Query users collection to find patient by ID
+                const usersQuery = query(
+                  collection(db, 'users'), 
+                  where('__name__', '==', apt.patientId) // Use document ID to match
                 );
-                const usersByIdSnapshot = await getDocs(usersByIdQuery);
+                const usersSnapshot = await getDocs(usersQuery);
                 
-                if (!usersByIdSnapshot.empty) {
-                  const patientData = usersByIdSnapshot.docs[0].data();
+                if (!usersSnapshot.empty) {
+                  const patientData = usersSnapshot.docs[0].data();
                   return {
                     ...apt,
-                    patientName: patientData.name || 
-                                `${patientData.firstName || ''} ${patientData.lastName || ''}`.trim() || 
-                                apt.patientName || 'Unknown Patient',
+                    patientName: patientData.name || `${patientData.firstName || ''} ${patientData.lastName || ''}`.trim() || apt.patientName || 'Unknown Patient',
                     patientEmail: patientData.email || apt.patientEmail,
                     patientPhone: patientData.phone || patientData.phoneNumber || apt.patientPhone
                   };
                 }
+              } catch (err) {
+                console.error('Error fetching patient details:', err);
               }
-            } catch (err) {
-              console.error('Error fetching patient details:', err);
             }
-          }
-          return {
-            ...apt,
-            patientName: apt.patientName || apt.patient?.name || 'Unknown Patient'
-          };
-        }));
+            return {
+              ...apt,
+              patientName: apt.patientName || (apt.patient && apt.patient.name) || 'Unknown Patient'
+            };
+          })
+        );
         
         setUpcomingAppointments(appointmentsWithPatientDetails);
 
@@ -683,7 +907,7 @@ const Dashboard = ({ onNavigateToAppointments }) => {
           alignItems: 'center',
           gap: 1,
         }}>
-          Upcoming Appointments
+          Upcoming Appointments 
           <Chip
             size="small"
             label={loading ? '...' : upcomingAppointments.length}
@@ -715,10 +939,10 @@ const Dashboard = ({ onNavigateToAppointments }) => {
       ) : upcomingAppointments.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No upcoming appointments today
+            No upcoming appointments in the next 3 days
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Your schedule is clear for today!
+            Your schedule is clear for the next few days!
           </Typography>
         </Paper>
       ) : (
