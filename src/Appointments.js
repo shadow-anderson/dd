@@ -467,7 +467,7 @@ const Appointments = () => {
 
   const handleGenerateMeet = async (appointmentId) => {
     try {
-      // Generate a mock Google Meet link (replace with actual Google Meet API integration)
+      // Generate a mock Google Meet link 
       const meetLink = `https://meet.google.com/abc-defg-hij?appointmentId=${appointmentId}`;
       
       const appointmentRef = doc(db, 'appointments', appointmentId);
