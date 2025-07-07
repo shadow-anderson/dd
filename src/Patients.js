@@ -277,7 +277,14 @@ const Patients = () => {
     alert(`Scheduling new appointment for patient #${patientId}`);
   };
   const handleViewDocuments = (patientId) => {
-    alert(`Viewing documents for patient #${patientId}`);
+    // Find the patient by id
+    const patient = patients.find(p => p.id === patientId);
+    if (patient && Array.isArray(patient.documents) && patient.documents.length > 0) {
+      const firstDoc = patient.documents[0];
+      if (firstDoc.url) {
+        window.open(firstDoc.url, '_blank', 'noopener,noreferrer');
+      }
+    }
   };
   const handleContactPatient = (patientId, method) => {
     alert(`Contacting patient #${patientId} via ${method}`);
@@ -742,6 +749,16 @@ function PatientCard({ patient, onSchedule, onViewDocuments, onContact, onGoogle
                       {(doc.type || 'document').toUpperCase()} • Uploaded{" "}
                     </Typography>
                   </Box>
+                  {doc.url ? (
+                    <Button
+                      variant="contained"
+                      color="info"
+                      size="small"
+                      onClick={() => window.open(doc.url, '_blank', 'noopener,noreferrer')}
+                    >
+                      View Document
+                    </Button>
+                  ) : null}
                 </Box>
               ))
             ) : (

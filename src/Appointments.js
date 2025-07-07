@@ -6,226 +6,246 @@ import {
   Typography, IconButton, Collapse, Divider, Tooltip, Dialog, DialogTitle,
   DialogContent, DialogActions, MenuItem, FormControl, InputLabel, Select
 } from '@mui/material';
-import { ExpandMore, Phone, VideoCall, Notifications, Email, } from '@mui/icons-material';
+import { ExpandMore, Phone, VideoCall, Notifications, Email, Close as CloseIcon } from '@mui/icons-material';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const appointmentTabs = ['all', 'pending', 'today', 'confirmed', 'completed', 'cancelled'];
 
 // Appointmentcard Component
-const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerateMeet, onUpdateStatus }) => (
-  <Card sx={{ mb: 2, boxShadow: 3, '&:hover': { boxShadow: 6 } }}>
-    <CardContent>
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{appointment.patientName}</Typography>
-          <Typography variant="subtitle2" color="text.secondary">
-            ID: {appointment.id.slice(0, 8)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {appointment.doctorName} - {appointment.clinicName}
-          </Typography>
-        </Box>
-        <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
-          <Chip
-            label={appointment.status}
-            color={
-              appointment.status === 'completed' ? 'success' :
-              appointment.status === 'cancelled' ? 'error' :
-              appointment.status === 'confirmed' ? 'info' :
-              appointment.status === 'pending' ? 'warning' : 'primary'
-            }
-            sx={{ borderRadius: 1, textTransform: 'capitalize' }}
-          />
-          <Chip
-            label={appointment.type}
-            variant="outlined"
-            size="small"
-            sx={{ textTransform: 'capitalize' }}
-          />
-        </Box>
-      </Box>
-      
-      <Box display="flex" alignItems="center" mt={3} gap={2} flexWrap="wrap">
-        <Tooltip title="Phone number">
-          <Button 
-            startIcon={<Phone />}
-            variant="outlined"
-            size="small"
-            sx={{ borderRadius: 2 }}
-            href={`tel:${appointment.patientPhone}`}
-          >
-            {appointment.patientPhone}
-          </Button>
-        </Tooltip>
+const AppointmentCard = ({ appointment, onExpand, expanded, onDelete, onGenerateMeet, onUpdateStatus, onViewDocument }) => {
+  // Find the first document URL in medicalRecords (if any)
+  const firstDoc = Array.isArray(appointment.medicalRecords) && appointment.medicalRecords.length > 0
+    ? appointment.medicalRecords[0]
+    : null;
 
-        <Tooltip title="Email">
-          <Button 
-            startIcon={<Email />}
-            variant="outlined"
-            size="small"
-            sx={{ borderRadius: 2 }}
-            href={`mailto:${appointment.patientEmail}`}
-          >
-            Email
-          </Button>
-        </Tooltip>
-        
-        {!appointment.gmeet_link ? (
-          <Button
-            variant="contained"
-            startIcon={<VideoCall />}
-            onClick={() => onGenerateMeet(appointment.id)}
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            Create Meet
-          </Button>
-        ) : (
-          <Button
-            variant="outlined"
-            startIcon={<VideoCall />}
-            href={appointment.gmeet_link}
-            target="_blank"
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            Join Meet
-          </Button>
-        )}
-
-        <Tooltip title={`Email ${appointment.emailSent ? 'sent' : 'pending'}`}>
-          <IconButton size="small" sx={{ bgcolor: 'background.paper' }}>
-            <Notifications color={appointment.emailSent ? 'success' : 'action'} />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
-      <Typography 
-        variant="body2" 
-        color="text.secondary" 
-        mt={2}
-        sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
-      >
-        <Box component="span" sx={{ fontWeight: 'medium' }}>
-          {appointment.appointmentDate}
+  return (
+    <Card sx={{ mb: 2, boxShadow: 3, '&:hover': { boxShadow: 6 } }}>
+      <CardContent>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{appointment.patientName}</Typography>
+            <Typography variant="subtitle2" color="text.secondary">
+              ID: {appointment.id.slice(0, 8)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {appointment.doctorName} - {appointment.clinicName}
+            </Typography>
+          </Box>
+          <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
+            <Chip
+              label={appointment.status}
+              color={
+                appointment.status === 'completed' ? 'success' :
+                appointment.status === 'cancelled' ? 'error' :
+                appointment.status === 'confirmed' ? 'info' :
+                appointment.status === 'pending' ? 'warning' : 'primary'
+              }
+              sx={{ borderRadius: 1, textTransform: 'capitalize' }}
+            />
+            <Chip
+              label={appointment.type}
+              variant="outlined"
+              size="small"
+              sx={{ textTransform: 'capitalize' }}
+            />
+          </Box>
         </Box>
-        -
-        <Box component="span" sx={{ color: 'primary.main' }}>
-          {appointment.appointmentTime}
-        </Box>
-        <Box component="span" sx={{ bgcolor: 'grey.100', px: 1, borderRadius: 1 }}>
-          {appointment.duration || 30} mins
-        </Box>
-        <Box component="span" sx={{ bgcolor: 'info.light', color: 'info.contrastText', px: 1, borderRadius: 1 }}>
-          {appointment.treatmentType}
-        </Box>
-      </Typography>
-    </CardContent>
 
-    <CardActions disableSpacing sx={{ justifyContent: 'space-between' }}>
-      <Typography variant="caption" color="text.secondary">
-        {appointment.type} appointment
-      </Typography>
-      <IconButton 
-        onClick={() => onExpand(appointment.id)}
-        sx={{ 
-          transform: expanded ? 'rotate(180deg)' : 'none',
-          transition: 'transform 0.3s'
-        }}
-      >
-        <ExpandMore />
-      </IconButton>
-    </CardActions>
+        <Box display="flex" alignItems="center" mt={3} gap={2} flexWrap="wrap">
+          <Tooltip title="Phone number">
+            <Button 
+              startIcon={<Phone />}
+              variant="outlined"
+              size="small"
+              sx={{ borderRadius: 2 }}
+              href={`tel:${appointment.patientPhone}`}
+            >
+              {appointment.patientPhone}
+            </Button>
+          </Tooltip>
 
-    <Collapse in={expanded} timeout={300}>
-      <CardContent sx={{ 
-        bgcolor: 'grey.50',
-        '& .MuiTypography-paragraph': {
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1,
-          mb: 2
-        }
-      }}>
-        <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Patient Email:</Box>
-          <Box component="span" sx={{ ml: 1 }}>{appointment.patientEmail}</Box>
-        </Typography>
-        <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Symptoms:</Box>
-          <Box component="span" sx={{ ml: 1 }}>
-            {Array.isArray(appointment.symptoms) 
-              ? appointment.symptoms.join(', ') 
-              : appointment.symptoms || 'No symptoms recorded'
-            }
+          <Tooltip title="Email">
+            <Button 
+              startIcon={<Email />}
+              variant="outlined"
+              size="small"
+              sx={{ borderRadius: 2 }}
+              href={`mailto:${appointment.patientEmail}`}
+            >
+              Email
+            </Button>
+          </Tooltip>
+
+          {/* View Document Button */}
+          {firstDoc && firstDoc.url && (
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              sx={{ borderRadius: 2 }}
+              onClick={() => onViewDocument(firstDoc)}
+            >
+              View Document
+            </Button>
+          )}
+
+          {!appointment.gmeet_link ? (
+            <Button
+              variant="contained"
+              startIcon={<VideoCall />}
+              onClick={() => onGenerateMeet(appointment.id)}
+              size="small"
+              sx={{ borderRadius: 2 }}
+            >
+              Create Meet
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<VideoCall />}
+              href={appointment.gmeet_link}
+              target="_blank"
+              size="small"
+              sx={{ borderRadius: 2 }}
+            >
+              Join Meet
+            </Button>
+          )}
+
+          <Tooltip title={`Email ${appointment.emailSent ? 'sent' : 'pending'}`}>
+            <IconButton size="small" sx={{ bgcolor: 'background.paper' }}>
+              <Notifications color={appointment.emailSent ? 'success' : 'action'} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Typography 
+          variant="body2" 
+          color="text.secondary" 
+          mt={2}
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+        >
+          <Box component="span" sx={{ fontWeight: 'medium' }}>
+            {appointment.appointmentDate}
+          </Box>
+          -
+          <Box component="span" sx={{ color: 'primary.main' }}>
+            {appointment.appointmentTime}
+          </Box>
+          <Box component="span" sx={{ bgcolor: 'grey.100', px: 1, borderRadius: 1 }}>
+            {appointment.duration || 30} mins
+          </Box>
+          <Box component="span" sx={{ bgcolor: 'info.light', color: 'info.contrastText', px: 1, borderRadius: 1 }}>
+            {appointment.treatmentType}
           </Box>
         </Typography>
-        <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Notes:</Box>
-          <Box component="span" sx={{ ml: 1 }}>{appointment.notes || 'No notes available'}</Box>
+      </CardContent>
+
+      <CardActions disableSpacing sx={{ justifyContent: 'space-between' }}>
+        <Typography variant="caption" color="text.secondary">
+          {appointment.type} appointment
         </Typography>
-        <Typography paragraph>
-          <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Treatment Type:</Box>
-          <Box component="span" sx={{ ml: 1, textTransform: 'capitalize' }}>{appointment.treatmentType}</Box>
-        </Typography>
-        {appointment.emailSent && (
+        <IconButton 
+          onClick={() => onExpand(appointment.id)}
+          sx={{ 
+            transform: expanded ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.3s'
+          }}
+        >
+          <ExpandMore />
+        </IconButton>
+      </CardActions>
+
+      <Collapse in={expanded} timeout={300}>
+        <CardContent sx={{ 
+          bgcolor: 'grey.50',
+          '& .MuiTypography-paragraph': {
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1,
+            mb: 2
+          }
+        }}>
           <Typography paragraph>
-            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Email Status:</Box>
-            <Box component="span" sx={{ ml: 1, color: 'success.main' }}>
-              Sent at {appointment.emailSentAt?.toDate?.()?.toLocaleString() || 'Unknown time'}
+            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Patient Email:</Box>
+            <Box component="span" sx={{ ml: 1 }}>{appointment.patientEmail}</Box>
+          </Typography>
+          <Typography paragraph>
+            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Symptoms:</Box>
+            <Box component="span" sx={{ ml: 1 }}>
+              {Array.isArray(appointment.symptoms) 
+                ? appointment.symptoms.join(', ') 
+                : appointment.symptoms || 'No symptoms recorded'
+              }
             </Box>
           </Typography>
-        )}
-        <Divider sx={{ my: 2 }} />
-        <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
-          <Button 
-            variant="outlined" 
-            color="error" 
-            onClick={() => onDelete(appointment.id)}
-            size="small"
-            sx={{ borderRadius: 2 }}
-          >
-            Delete
-          </Button>
-          {appointment.status === 'pending' && (
+          <Typography paragraph>
+            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Notes:</Box>
+            <Box component="span" sx={{ ml: 1 }}>{appointment.notes || 'No notes available'}</Box>
+          </Typography>
+          <Typography paragraph>
+            <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Treatment Type:</Box>
+            <Box component="span" sx={{ ml: 1, textTransform: 'capitalize' }}>{appointment.treatmentType}</Box>
+          </Typography>
+          {appointment.emailSent && (
+            <Typography paragraph>
+              <Box component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Email Status:</Box>
+              <Box component="span" sx={{ ml: 1, color: 'success.main' }}>
+                Sent at {appointment.emailSentAt?.toDate?.()?.toLocaleString() || 'Unknown time'}
+              </Box>
+            </Typography>
+          )}
+          <Divider sx={{ my: 2 }} />
+          <Box display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
             <Button 
-              variant="contained"
-              color="info"
-              onClick={() => onUpdateStatus(appointment.id, 'confirmed')}
+              variant="outlined" 
+              color="error" 
+              onClick={() => onDelete(appointment.id)}
               size="small"
               sx={{ borderRadius: 2 }}
             >
-              Confirm
+              Delete
             </Button>
-          )}
-          {(appointment.status === 'confirmed' || appointment.status === 'pending') && (
-            <Button 
-              variant="contained"
-              color="success"
-              onClick={() => onUpdateStatus(appointment.id, 'completed')}
-              size="small"
-              sx={{ borderRadius: 2 }}
-            >
-              Mark Complete
-            </Button>
-          )}
-          {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
-            <Button 
-              variant="outlined"
-              color="warning"
-              onClick={() => onUpdateStatus(appointment.id, 'cancelled')}
-              size="small"
-              sx={{ borderRadius: 2 }}
-            >
-              Cancel
-            </Button>
-          )}
-        </Box>
-      </CardContent>
-    </Collapse>
-  </Card>
-);
+            {appointment.status === 'pending' && (
+              <Button 
+                variant="contained"
+                color="info"
+                onClick={() => onUpdateStatus(appointment.id, 'confirmed')}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                Confirm
+              </Button>
+            )}
+            {(appointment.status === 'confirmed' || appointment.status === 'pending') && (
+              <Button 
+                variant="contained"
+                color="success"
+                onClick={() => onUpdateStatus(appointment.id, 'completed')}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                Mark Complete
+              </Button>
+            )}
+            {appointment.status !== 'cancelled' && appointment.status !== 'completed' && (
+              <Button 
+                variant="outlined"
+                color="warning"
+                onClick={() => onUpdateStatus(appointment.id, 'cancelled')}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                Cancel
+              </Button>
+            )}
+          </Box>
+        </CardContent>
+      </Collapse>
+    </Card>
+  );
+};
 
 // Main Appointments Component
 const Appointments = () => {
@@ -253,6 +273,25 @@ const Appointments = () => {
     clinicId: 'clinic1',
     emailSent: false
   });
+  // State for document dialog
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentToView, setDocumentToView] = useState(null);
+  // For zoom in/out in document viewer
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Handler to open document dialog
+  const handleViewDocument = (doc) => {
+    setDocumentToView(doc);
+    setZoomLevel(1);
+    setDocumentDialogOpen(true);
+  };
+
+  // Handler to close document dialog
+  const handleCloseDocument = () => {
+    setDocumentDialogOpen(false);
+    setDocumentToView(null);
+    setZoomLevel(1);
+  };
 
   const treatmentTypes = ['general', 'hair', 'skin', 'dental', 'orthopedic', 'cardiology', 'neurology'];
   const appointmentTypes = ['in-person', 'online', 'home-visit'];
@@ -838,10 +877,45 @@ const Appointments = () => {
               onDelete={handleDelete}
               onGenerateMeet={handleGenerateMeet}
               onUpdateStatus={handleUpdateStatus}
+              onViewDocument={handleViewDocument}
             />
           ))}
         </>
       )}
+      {/* Document Viewer Dialog */}
+      <Dialog open={documentDialogOpen} onClose={handleCloseDocument} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          Document Preview
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseDocument}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ height: "70vh" }}>
+          {documentToView && (documentToView.previewUrl || documentToView.url) ? (
+            documentToView.type === "pdf" ? (
+              <iframe
+                src={documentToView.previewUrl || documentToView.url}
+                title={`Preview of ${documentToView.title || "document"}`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+              />
+            ) : (
+              <img
+                src={documentToView.previewUrl || documentToView.url}
+                alt={documentToView.title}
+                style={{ maxWidth: "100%", maxHeight: "60vh", display: "block", margin: "0 auto" }}
+              />
+            )
+          ) : (
+            <Typography>No document found.</Typography>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

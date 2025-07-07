@@ -33,230 +33,11 @@ import {
 } from "@mui/icons-material";
 
 
-import { db } from './firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
 
-// Mock documents data for demonstration
-const mockDocuments = [
-  {
-    id: 1,
-    title: "Medical Report of Anuj",
-    type: "pdf",
-    patient: "Anuj Pratap",
-    category: "results",
-    aiSummary: {
-      overview: "Health report of Anuj showing key metrics and observations.",
-      vitals: [
-        { name: "Hemoglobin", value: "15.1 g/dL", normalRange: "13–17 g/dL", status: "Normal" },
-        { name: "WBC Count", value: "6,200 /μL", normalRange: "4,000–11,000 /μL", status: "Normal" },
-        { name: "Platelet Count", value: "200,000 /μL", normalRange: "150,000–450,000 /μL", status: "Normal" },
-        { name: "Blood Sugar (Fasting)", value: "95 mg/dL", normalRange: "70–100 mg/dL", status: "Normal" },
-        { name: "Cholesterol (Total)", value: "205 mg/dL", normalRange: "< 200 mg/dL", status: "High" }
-      ],
-      analysis: [
-        "Values indicate no immediate critical health concern.",
-        "Further evaluation might be needed for borderline results.",
-        "Overall, patient is stable based on current data."
-      ],
-      recommendations: [
-        "Repeat test in 2 weeks.",
-        "Maintain a balanced diet.",
-        "Consult a specialist if symptoms persist."
-      ]
-    },
-    url: "https://drive.google.com/file/d/1hpWcmIXJLV9q0iyKMDw4VPNYFmQQkonJ/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1hpWcmIXJLV9q0iyKMDw4VPNYFmQQkonJ/preview",
-    size: "196 KB",
-    updatedAt: "2025-06-04T00:00:00"
-  },
-  {
-    id: 2,
-    title: "CT Scan Report of Priya",
-    type: "jpg",
-    patient: "Priya Sharma",
-    category: "imaging",
-    aiSummary: {
-      overview: "CT scan revealing minor sinus inflammation.",
-      vitals: [],
-      analysis: [
-        "No signs of structural abnormality.",
-        "Minor inflammation in sinus cavities."
-      ],
-      recommendations: [
-        "Consult ENT specialist.",
-        "Use prescribed nasal sprays."
-      ]
-    },
-    url: "https://drive.google.com/file/d/1z6Mdl_OT11zF7GozE9QbNh07Ae-KoPIK/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1z6Mdl_OT11zF7GozE9QbNh07Ae-KoPIK/preview",
-    size: "74 KB",
-    updatedAt: "2025-05-07T00:00:00"
-  },
-  {
-    id: 3,
-    title: "Blood Report of Rahul",
-    type: "pdf",
-    patient: "Rahul Verma",
-    category: "results",
-    aiSummary: {
-      overview: "Routine blood test with slightly elevated cholesterol.",
-      vitals: [
-        { name: "Hemoglobin", value: "14.3 g/dL", normalRange: "13–17 g/dL", status: "Normal" },
-        { name: "Cholesterol", value: "210 mg/dL", normalRange: "< 200 mg/dL", status: "High" }
-      ],
-      analysis: ["Mild hypercholesterolemia detected."],
-      recommendations: ["Adopt low-fat diet.", "Retest after 1 month."]
-    },
-    url: "https://drive.google.com/file/d/1aYqO0bXeK_8rVqAlJybUOF4tWkq1uCPQ/view?usp=drive_link",
-    previewUrl: "https://drive.google.com/file/d/1aYqO0bXeK_8rVqAlJybUOF4tWkq1uCPQ/preview",
-    size: "467 KB",
-    updatedAt: "2025-04-20T00:00:00"
-  },
-  {
-    id: 4,
-    title: "MRI Report of Sanya",
-    type: "docx",
-    patient: "Sanya Roy",
-    category: "imaging",
-    aiSummary: {
-      overview: "MRI shows no abnormalities in brain scan.",
-      vitals: [],
-      analysis: ["Normal MRI scan; no signs of trauma or lesions."],
-      recommendations: ["No immediate action required."]
-    },
-    url: "https://docs.google.com/document/d/1xZkGD-NUNj-h4winXcLPnXEi80Ilz2Sa/edit?usp=sharing",
-    previewUrl: "https://docs.google.com/document/d/1xZkGD-NUNj-h4winXcLPnXEi80Ilz2Sa/preview",
-    size: "16 KB",
-    updatedAt: "2025-03-28T00:00:00"
-  },
-  {
-    id: 5,
-    title: "Liver Function Test - Abhishek",
-    type: "pdf",
-    patient: "Abhishek Singh",
-    category: "results",
-    aiSummary: {
-      overview: "LFT showing elevated SGPT and SGOT levels.",
-      vitals: [
-        { name: "SGPT", value: "60 U/L", normalRange: "7–56 U/L", status: "High" },
-        { name: "SGOT", value: "58 U/L", normalRange: "5–40 U/L", status: "High" }
-      ],
-      analysis: ["Indicates possible liver inflammation or fatty liver."],
-      recommendations: ["Reduce alcohol intake.", "Ultrasound advised."]
-    },
-    url: "https://drive.google.com/file/d/19Gbnm1hi-bV2YfI51V4gNXLRBkwgp398/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/19Gbnm1hi-bV2YfI51V4gNXLRBkwgp398/preview",
-    size: "453 KB",
-    updatedAt: "2025-06-01T00:00:00"
-  },
-  {
-    id: 6,
-    title: "X-ray Chest - Manish",
-    type: "png",
-    patient: "Manish Kumar",
-    category: "imaging",
-    aiSummary: {
-      overview: "X-ray indicates clear lungs and no abnormalities.",
-      vitals: [],
-      analysis: ["Lung fields are normal.", "No evidence of fluid or mass."],
-      recommendations: ["No further action necessary."]
-    },
-    url: "https://drive.google.com/file/d/1y4LtjnwKWRywkPEVX_WK5JzGiVYCPHqe/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1y4LtjnwKWRywkPEVX_WK5JzGiVYCPHqe/preview",
-    size: "117 KB",
-    updatedAt: "2025-06-05T00:00:00"
-  },
-  {
-    id: 7,
-    title: "ECG Report - Reena",
-    type: "jpeg",
-    patient: "Reena Mishra",
-    category: "reports",
-    aiSummary: {
-      overview: "ECG shows normal sinus rhythm.",
-      vitals: [],
-      analysis: ["No arrhythmia or abnormalities noted."],
-      recommendations: ["Routine follow-up after 6 months."]
-    },
-    url: "https://drive.google.com/file/d/11UcHiRKANBUZXGusw8lm6h6QW77EEIzp/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/11UcHiRKANBUZXGusw8lm6h6QW77EEIzp/preview",
-    size: "138 KB",
-    updatedAt: "2025-05-15T00:00:00"
-  },
-  {
-    id: 8,
-    title: "Eye Test Report - Kunal",
-    type: "pdf",
-    patient: "Kunal Das",
-    category: "reports",
-    aiSummary: {
-      overview: "Visual acuity report for both eyes.",
-      vitals: [],
-      analysis: ["Mild myopia in left eye."],
-      recommendations: ["Prescription glasses recommended."]
-    },
-    url: "https://drive.google.com/file/d/12Tc6MsZdNEkPOeK6ZiaNNsCgzlGRwv5f/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/12Tc6MsZdNEkPOeK6ZiaNNsCgzlGRwv5f/preview",
-    size: "453 KB",
-    updatedAt: "2025-06-03T00:00:00"
-  },
-  {
-    id: 9,
-    title: "Thyroid Report of Sneha",
-    type: "docx",
-    patient: "Sneha Chatterjee",
-    category: "results",
-    aiSummary: {
-      overview: "TSH slightly above normal range.",
-      vitals: [
-        { name: "TSH", value: "6.0 µIU/mL", normalRange: "0.4–4.0 µIU/mL", status: "High" }
-      ],
-      analysis: ["Suggestive of subclinical hypothyroidism."],
-      recommendations: ["Monitor every 3 months.", "Consider endocrinologist consult."]
-    },
-    url: "https://docs.google.com/document/d/1zU9uE-cyn57P-oKK9WwEv_pTLZWzwHCz/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1zU9uE-cyn57P-oKK9WwEv_pTLZWzwHCz/preview",
-    size: "17 KB",
-    updatedAt: "2025-06-06T00:00:00"
-  },
-  {
-    id: 10,
-    title: "CBC Report - Tanmay",
-    type: "pdf",
-    patient: "Tanmay Dey",
-    category: "results",
-    aiSummary: {
-      overview: "Complete blood count mostly within range.",
-      vitals: [
-        { name: "WBC", value: "5,500 /μL", normalRange: "4,000–11,000 /μL", status: "Normal" },
-        { name: "RBC", value: "4.9 million/μL", normalRange: "4.5–6 million/μL", status: "Normal" }
-      ],
-      analysis: ["Healthy hematologic profile."],
-      recommendations: ["Maintain hydration.", "Routine annual checkup."]
-    },
-    url: "https://drive.google.com/file/d/1LAGziFTmffXY398ekJqUzba73s5RcD5Q/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/1LAGziFTmffXY398ekJqUzba73s5RcD5Q/preview",
-    size: "454 KB",
-    updatedAt: "2025-05-30T00:00:00"
-  },
-  {
-    id: 11,
-    title: "Ultrasound Abdomen - Aditya",
-    type: "jpeg",
-    patient: "Aditya Mehta",
-    category: "imaging",
-    aiSummary: {
-      overview: "Abdominal ultrasound normal except mild fatty liver.",
-      vitals: [],
-      analysis: ["Grade 1 fatty liver.", "Other organs appear normal."],
-      recommendations: ["Lifestyle modification.", "Low-fat diet."]
-    },
-    url: "https://drive.google.com/file/d/18XfMAkxMmaMZN8Dt_RDQsgnui7v8sLeT/view?usp=sharing",
-    previewUrl: "https://drive.google.com/file/d/18XfMAkxMmaMZN8Dt_RDQsgnui7v8sLeT/preview",
-    size: "150 KB",
-    updatedAt: "2025-06-02T00:00:00"
-  }
-];
+// Firebase Storage imports
+import { getStorage, ref, listAll, getDownloadURL, getMetadata } from "firebase/storage";
+
+
 
 const categories = ["all", "reports", "imaging", "results"];
 
@@ -291,101 +72,78 @@ const Documents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
-  // Fetch mock data (replace with Firestore fetch in real app)
-  useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setDocuments(mockDocuments);
-      setLoading(false);
-    }, 800);
-  }, []);
 
-  // Fetch documents from Firestore
+  // Fetch documents from Firebase Storage /medical-records
+  // Only show documents present in Firebase Storage, not from Firestore or mock data
   useEffect(() => {
-    const fetchDocuments = async () => {
+    const fetchStorageDocuments = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const querySnapshot = await getDocs(collection(db, 'documents'));
-        const docs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setDocuments(docs);
+        const storage = getStorage();
+        const recordsRef = ref(storage, 'medical-records');
+        const res = await listAll(recordsRef);
+        console.log('listAll result:', res);
+        let allFiles = [...res.items];
+        // Recursively get files from all subfolders
+        for (const folderRef of res.prefixes) {
+          const subRes = await listAll(folderRef);
+          allFiles = allFiles.concat(subRes.items);
+        }
+        if (allFiles.length === 0) {
+          console.warn('No files found in /medical-records/ or its subfolders');
+        }
+        const docs = await Promise.all(
+          allFiles.map(async (fileRef) => {
+            try {
+              const url = await getDownloadURL(fileRef);
+              let meta = {};
+              try {
+                meta = await getMetadata(fileRef);
+              } catch (e) {
+                console.warn('No metadata for', fileRef.name, e);
+              }
+              // Extract file info
+              const name = fileRef.name;
+              const ext = name.split('.').pop()?.toLowerCase() || '';
+              // Try to get size from metadata
+              let size = '';
+              if (meta.size) {
+                size = (meta.size / 1024).toFixed(0) + ' KB';
+              }
+              // Try to get updated date
+              let updatedAt = '';
+              if (meta.updated) {
+                updatedAt = meta.updated;
+              }
+              return {
+                id: fileRef.fullPath,
+                title: name,
+                type: ext,
+                url,
+                previewUrl: url,
+                size,
+                updatedAt,
+                // patient, category, 
+              };
+            } catch (fileErr) {
+              console.error('Error processing file', fileRef.name, fileErr);
+              return null;
+            }
+          })
+        );
+        setDocuments(docs.filter(Boolean));
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching documents:', err);
-        setError('Failed to load documents');
+        console.error('Error fetching storage documents:', err);
+        setError('Failed to load documents from storage');
         setLoading(false);
       }
     };
-
-    fetchDocuments();
+    fetchStorageDocuments();
   }, []);
 
-  // Add a new document to Firestore
-  const addDocument = async (documentData) => {
-    try {
-      const docRef = await addDoc(collection(db, 'documents'), {
-        ...documentData,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      setDocuments(prev => [...prev, { id: docRef.id, ...documentData }]);
-      return docRef.id;
-    } catch (err) {
-      console.error('Error adding document:', err);
-      throw new Error('Failed to add document');
-    }
-  };
-
-   // Update a document in Firestore
-  const updateDocument = async (documentId, updatedData) => {
-    try {
-      const documentRef = doc(db, 'documents', documentId);
-      await updateDoc(documentRef, {
-        ...updatedData,
-        updatedAt: new Date()
-      });
-      
-      setDocuments(prev => 
-        prev.map(doc => 
-          doc.id === documentId ? { ...doc, ...updatedData } : doc
-        )
-      );
-    } catch (err) {
-      console.error('Error updating document:', err);
-      throw new Error('Failed to update document');
-    }
-  };
-
-  // Delete a document from Firestore
-  const deleteDocument = async (documentId) => {
-    try {
-      await deleteDoc(doc(db, 'documents', documentId));
-      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-    } catch (err) {
-      console.error('Error deleting document:', err);
-      throw new Error('Failed to delete document');
-    }
-  };
-
-  // Get documents by patient ID
-  const getPatientDocuments = async (patientId) => {
-    try {
-      const q = query(
-        collection(db, 'documents'),
-        where('patientId', '==', patientId)
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-    } catch (err) {
-      console.error('Error fetching patient documents:', err);
-      throw new Error('Failed to fetch patient documents');
-    }
-  };
+  
 
   // Filtering
   let filteredDocs = documents;
@@ -546,12 +304,12 @@ const Documents = () => {
               <Grid size={{ xs: 12 }}>
                 <Typography align="center" variant="h6" sx={{ mt: 4 }}>
                   {documents.length === 0
-                    ? "No documents found in database."
+                    ? "No documents found in Firebase Storage."
                     : "No documents match your search criteria."}
                 </Typography>
                 {documents.length === 0 && (
                   <Typography align="center" variant="body2" color="text.secondary">
-                    Make sure your Firestore collection 'documents' contains data.
+                    Make sure your Firebase Storage 'medical-records' folder contains files.
                   </Typography>
                 )}
               </Grid>
